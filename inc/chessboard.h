@@ -26,6 +26,8 @@
 typedef struct moveType_s
 {
     void *nextMove;
+    char move[10];
+    
 } moveType_t;
 
 /* Enum definining piece index */
