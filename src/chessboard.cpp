@@ -224,7 +224,7 @@ void ChessBoard::generateRookMoves(pieceType_t pt, moveType_t *lastMove)
     // Rooks can move vertically and horizontally. Logic is mostly unified between color
 
     pieceType_t enemyPieces;
-    uint64_t rooks = this->pieces[pt], rook, temp;
+    uint64_t rooks = this->pieces[pt], rook, temp, rookIdx;
     (pt < 6) ? enemyPieces = BLACK_PIECES : enemyPieces = WHITE_PIECES;
 
     // No rooks left
@@ -243,33 +243,25 @@ void ChessBoard::generateRookMoves(pieceType_t pt, moveType_t *lastMove)
     // Avenues of attack are up shift 8, down shift 8, right shift 1, left shift 1
     // All of these are until edge
 
-    while(uint32_t rookIdx = 0)
+    while(rooks > 0)
     {
-        // This sucks, but I am tired so this will live for now
-        if(rookIdx == 0)
-        {
-            rook = 1 << __builtin_clz(rooks);
-        }
-        else if((rooks & (rooks - 1)) == 0)
-        {
-            break;
-        }
-        else
-        {
-            rook = (1 << (64 - __builtin_ctz(rooks)));
-        }
+
+        // Get and clear index
+        rookIdx = __builtin_clz(rooks);
+        rook = (1 << rookIdx);
+        rooks ^= rook;
 
         temp = rook;
         // left
         do
         {
             // on the left side of the board, can't go that way
-            if(rook % 8 == 0)
+            if(rookIdx % 8 == 0)
             {
                 break;
             }
 
-            temp >> 1;
+            temp = temp >> 1;
             if((temp & this->occupied) == 0)
             {
                 // Valid movement
@@ -277,6 +269,7 @@ void ChessBoard::generateRookMoves(pieceType_t pt, moveType_t *lastMove)
             else if((temp & this->pieces[enemyPieces]) != 0)
             {
                 // Valid attack move
+                break;
             }
 
         } while(temp % 8 > 0);
@@ -286,12 +279,12 @@ void ChessBoard::generateRookMoves(pieceType_t pt, moveType_t *lastMove)
         do
         {
             // on the left side of the board, can't go that way
-            if(rook % 8 == 7)
+            if(rookIdx % 8 == 7)
             {
                 break;
             }
 
-            temp << 1;
+            temp = temp << 1;
             if((temp & this->occupied) == 0)
             {
                 // Valid movement
@@ -299,6 +292,7 @@ void ChessBoard::generateRookMoves(pieceType_t pt, moveType_t *lastMove)
             else if((temp & this->pieces[enemyPieces]) != 0)
             {
                 // Valid attack move
+                break;
             }
 
         } while(temp % 8 < 7);
@@ -308,12 +302,12 @@ void ChessBoard::generateRookMoves(pieceType_t pt, moveType_t *lastMove)
         do
         {
             // on the left side of the board, can't go that way
-            if(rook < 8)
+            if(rookIdx < 8)
             {
                 break;
             }
 
-            temp >> 8;
+            temp = temp >> 8;
             if((temp & this->occupied) == 0)
             {
                 // Valid movement
@@ -321,6 +315,7 @@ void ChessBoard::generateRookMoves(pieceType_t pt, moveType_t *lastMove)
             else if((temp & this->pieces[enemyPieces]) != 0)
             {
                 // Valid attack move
+                break;
             }
 
         } while(temp >= 8);
@@ -330,12 +325,12 @@ void ChessBoard::generateRookMoves(pieceType_t pt, moveType_t *lastMove)
         do
         {
             // on the left side of the board, can't go that way
-            if(rook > 54)
+            if(rookIdx > 54)
             {
                 break;
             }
 
-            temp << 8;
+            temp = temp << 8;
             if((temp & this->occupied) == 0)
             {
                 // Valid movement
@@ -343,6 +338,7 @@ void ChessBoard::generateRookMoves(pieceType_t pt, moveType_t *lastMove)
             else if((temp & this->pieces[enemyPieces]) != 0)
             {
                 // Valid attack move
+                break;
             }
 
         } while(temp <= 54);
@@ -352,7 +348,120 @@ void ChessBoard::generateRookMoves(pieceType_t pt, moveType_t *lastMove)
 
 void ChessBoard::generateBishopMoves(pieceType_t pt, moveType_t *lastMove)
 {
-    // @todo
+    pieceType_t enemyPieces;
+    uint64_t bishops = this->pieces[pt], bishopIdx, bishop, temp;
+    (pt < 6) ? enemyPieces = BLACK_PIECES : enemyPieces = WHITE_PIECES;
+
+    // No bishops left
+    if(bishops == 0)
+    {
+        return;
+    }
+
+    // This should never happen
+    if(lastMove == NULL)
+    {
+        std::cout << "Movetype ptr passed in was NULL, this should never happen!" << std::endl;
+        return;
+    }
+
+    while(bishops > 0)
+    {
+        bishopIdx = __builtin_clz(bishops);
+        bishop = (1 << bishopIdx);
+        bishops ^= bishop;
+
+        // Four directions of movement
+
+        // Down left
+        temp = bishop;
+        do
+        {
+            if(temp % 8 == 0 || __builtin_clz(temp) < 8)
+            {
+                break;
+            }
+
+            temp = temp >> 9;
+            if((temp & this->occupied) == 0)
+            {
+                // Valid movement
+            }
+            if((temp & this->pieces[enemyPieces]) != 0)
+            {
+                // Valid attack move
+                break;
+            }
+
+        } while(temp > 0);
+
+        // Down right
+        temp = bishop;
+        do
+        {
+            if(temp % 8 == 7 || __builtin_clz(temp) < 8)
+            {
+                break;
+            }
+
+            temp = temp >> 7;
+            if((temp & this->occupied) == 0)
+            {
+                // Valid movement
+            }
+            if((temp & this->pieces[enemyPieces]) != 0)
+            {
+                // Valid attack move
+                break;
+            }
+
+        } while(temp > 0);
+
+        // Up left
+        temp = bishop;
+        do
+        {
+            if(temp % 8 == 0 || __builtin_clz(temp) >= 54)
+            {
+                break;
+            }
+
+            temp = temp << 7;
+            if((temp & this->occupied) == 0)
+            {
+                // Valid movement
+            }
+            if((temp & this->pieces[enemyPieces]) != 0)
+            {
+                // Valid attack move
+                break;
+            }
+
+        } while(temp > 0);
+
+        // Up right
+        temp = bishop;
+        do
+        {
+            if(temp % 8 == 7 || __builtin_clz(temp) >= 54)
+            {
+                break;
+            }
+
+            temp = temp << 9;
+            if((temp & this->occupied) == 0)
+            {
+                // Valid movement
+            }
+            if((temp & this->pieces[enemyPieces]) != 0)
+            {
+                // Valid attack move
+                break;
+            }
+
+        } while(temp > 0);
+
+    }
 }
 
 void ChessBoard::generateKnightMoves(pieceType_t pt, moveType_t *lastMove)
