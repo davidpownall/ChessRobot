@@ -471,12 +471,24 @@ void ChessBoard::generateKnightMoves(pieceType_t pt, moveType_t *lastMove)
 
 void ChessBoard::generateQueenMoves(pieceType_t pt, moveType_t *lastMove)
 {
-    // @todo
+    // The queen can make any move that a rook or bishop can
+    this->generateBishopMoves(pt, NULL);
+    this->generateRookMoves(pt, NULL);
 }
 
 void ChessBoard::generateKingMoves(pieceType_t pt, moveType_t *lastMove)
 {
-    // @todo
+    // While the king has basic movement, it cannot put itself into check,
+    // we need an additional guard in place for that. Also castling behavior.
+
+    pieceType_t enemyPieces;
+    uint64_t king = this->pieces[pt], temp;
+    (pt < 6) ? enemyPieces = BLACK_PIECES : enemyPieces = WHITE_PIECES;
+
+    // Generate moves
+
+    // Iterate through coverage list to check if that square is under threat
+
 }
 
 uint64_t initializeChessBoard(void)
