@@ -22,12 +22,13 @@
 #define BOARD_START_EMPTY   0x0000FFFFFFFF0000
 
 #define NUM_PIECE_TYPES     12
+#define MAX_EVAL_MOVES      40
 
 typedef struct moveType_s
 {
     void *nextMove;
     char move[10];
-    
+    uint64_t moveValue;
 } moveType_t;
 
 /* Enum definining piece index */
@@ -61,10 +62,13 @@ private:
     /* Positions of all empty squares */
     uint64_t empty;
 
+    uint64_t numMovesAtThisDepth;
+    moveType_t *movesToEvaluateAtThisDepth;
+
 public:
 
     ChessBoard(void);
-    ChessBoard(uint64_t *pieces, uint64_t occupied);
+    ChessBoard(uint64_t *pieces, uint64_t occupiedm, uint64_t numMovesToEval);
 
     uint64_t getPiece(pieceType_t pt) const { return pieces[pt]; };
     uint64_t getWhitePieces() const { return pieces[WHITE_PIECES]; };
@@ -84,7 +88,8 @@ public:
     uint64_t getBlackQueen() const { return pieces[BLACK_QUEEN]; };
     uint64_t getBlackKing() const { return pieces[BLACK_KING]; };
 
-    moveType_t generateMoves(pieceType_t pt);
+    void generateMoves(moveType_t *moveStart, pieceType_t pt);
+    moveType_t *getNextMove(pieceType_t pt);
 
     void generatePawnMoves(pieceType_t pt, moveType_t *lastMove);
     void generateRookMoves(pieceType_t pt, moveType_t *lastMove);

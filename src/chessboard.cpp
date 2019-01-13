@@ -39,6 +39,16 @@ ChessBoard::ChessBoard(void)
         this->occupied |= this->pieces[pt];
     }
     this->empty = ~(this->occupied);
+
+    this->numMovesAtThisDepth = MAX_EVAL_MOVES;
+    this->movesToEvaluateAtThisDepth = (moveType_t *) malloc(this->numMovesAtThisDepth * sizeof(moveType_t));
+
+    if(this->movesToEvaluateAtThisDepth == NULL)
+    {
+        std::cout << "Failed to allocate move memory" << std::endl;
+        return;        
+    }
+
 }
 
 /**
@@ -47,7 +57,7 @@ ChessBoard::ChessBoard(void)
  * @param *pieces:  The current board position of all pieces
  * @param occupued: The set of all occupied squares
  */
-ChessBoard::ChessBoard(uint64_t *pieces, uint64_t occupied)
+ChessBoard::ChessBoard(uint64_t *pieces, uint64_t occupied, uint64_t numMovesToEval)
 {
 
     // Verify that our array is valid
@@ -65,6 +75,15 @@ ChessBoard::ChessBoard(uint64_t *pieces, uint64_t occupied)
     this->occupied = occupied;
     this->empty = ~occupied;
 
+    this->numMovesAtThisDepth = numMovesToEval;
+    this->movesToEvaluateAtThisDepth = (moveType_t *) malloc(this->numMovesAtThisDepth * sizeof(moveType_t));
+
+    if(this->movesToEvaluateAtThisDepth == NULL)
+    {
+        std::cout << "Failed to allocate move memory" << std::endl;
+        return;        
+    }
+
 }
 
 /**
@@ -72,16 +91,15 @@ ChessBoard::ChessBoard(uint64_t *pieces, uint64_t occupied)
  * 
  * @param pt:   The color you wish to generate possible moves for
  */
-moveType_t ChessBoard::generateMoves(pieceType_t pt)
+void ChessBoard::generateMoves(moveType_t *moveStart, pieceType_t pt)
 {
-    moveType_t moveStart;
     moveType_t lastMove;
 
     // Determine validity of input
     if(!(pt == WHITE_PIECES || pt == BLACK_PIECES))
     {
         std::cout << "Error in piece type input: " << pt << std::endl;
-        return moveStart;
+        return;
     }
 
     // Generate possible plays
@@ -92,7 +110,6 @@ moveType_t ChessBoard::generateMoves(pieceType_t pt)
     generateQueenMoves(pt, &lastMove);
     generateKingMoves(pt, &lastMove);
 
-    return moveStart;
 }
 
 /**
@@ -543,7 +560,7 @@ void ChessBoard::generateKingMoves(pieceType_t pt, moveType_t *lastMove)
  * 
  *  Let's ballpark this to 5 move future search to start:
  * 
- *      |M(i)|   = 40
+ *      |M(i)|   = ||
  *      |M(i+1)| = 30
  *      |M(i+2)| = 20
  *      |M(i+3)| = 10
@@ -551,6 +568,19 @@ void ChessBoard::generateKingMoves(pieceType_t pt, moveType_t *lastMove)
  * 
  *      That is 1.2 million possible moves (lol)
  */
+
+
+moveType_t *ChessBoard::getNextMove(pieceType_t pt)
+{
+    // Sort moves in descending order by value of the move
+    
+    // For the number of moves we are supposed to evaluate at this depth,
+    // sort by current value
+
+    // Update final value with result of search
+
+    return NULL;
+}
 
 uint64_t initializeChessBoard(void)
 {
