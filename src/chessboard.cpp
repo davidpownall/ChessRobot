@@ -491,6 +491,67 @@ void ChessBoard::generateKingMoves(pieceType_t pt, moveType_t *lastMove)
 
 }
 
+/**
+ * Algorithm for selecting moves:
+ * 
+ *  We know: 
+ *      -   the the current state of our chessboard after move i-1 C(i)
+ *      -   the current value of our chessboard after move i-1 V(i)
+ *      -   the possible moves for our position after move i-1 M(i)
+ *              - each move denoted by m_j s.t. m_j is in M(i)
+ * 
+ *  We know that we have a list of possible moves available to use
+ *      -   We at this point have made no determination about whether
+ *          or not that move is any good
+ *      -   We now want to evaluate all of our moves in M(i)
+ * 
+ *  For a basic evaluation of a given move, we need to consider what
+ *  our board value will be at the start of our next move, or after our
+ *  opponent has moved. This can be represented as V(i+2):
+ * 
+ *      Value(m_j) = V(i+2) - V(i) 
+ * 
+ *  For a general search depth of n moves into the future, this is:
+ * 
+ *      Value(m_j) = V(i+n) - V(i)
+ * 
+ *  Where generally:
+ *  
+ *      V(i) = V(i-1) + Value(m_prev)
+ * 
+ *  Which leads to the selection of our "best" move:
+ * 
+ *  m_next  = MAX_(m_j in M(i)) { Value(m_j) }
+ *          = MAX_(m_j in M(i)) { V(i+n) - V(i) }
+ * 
+ *  Bringing in the recurrence:
+ * 
+ *  m_next = MAX_(m_j in M(i)) { V(i+n-1) + Value(m_(n-1)) - V(i) }
+ *  m_next = MAX_(m_j in M(i)) { V(i+n-2) + Value(m_(n-2)) + Value(m_(n-1)) - V(i) }
+ *  ...
+ *  m_next = MAX_(m_j in M(i)) { SUM_{k=j}{j+n-1}( Value(m_(k)) ) }
+ * 
+ *  But value will be negative if our opponent is moving:
+ * 
+ *      Let X(i) be an objective function s.t. X(k) = 1     iff k-j % 2 == 0
+ *                                                  = -1    otherwise
+ * 
+ *  m_next = MAX_(m_j in M(i)) { SUM_{k=j}{j+n-1}( Value(m_(k))X(k) ) }
+ * 
+ *  Obviously the move space will be exponential, so we want to
+ *  prune this search tree as we go through it. 
+ * 
+ *  Let's ballpark this to 5 move future search to start:
+ * 
+ *      |M(i)|   = 40
+ *      |M(i+1)| = 30
+ *      |M(i+2)| = 20
+ *      |M(i+3)| = 10
+ *      |M(i+4)| = 5
+ * 
+ *      That is 1.2 million possible moves (lol)
+ */
+
 uint64_t initializeChessBoard(void)
 {
     cb = new ChessBoard();
