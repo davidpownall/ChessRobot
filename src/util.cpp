@@ -1,12 +1,12 @@
 #include "util.h"
 #include "chessboard.h"
 
-static char pawnChar   = 'p';
-static char rookChar   = 'r';
-static char bishopChar = 'b';
-static char knightChar = 'k';
-static char queenChar  = 'q';
-static char kingChar   = 'k';
+static char pawnChar   = 'p'; // I know pawn technically doesn't use a letter.....
+static char rookChar   = 'R';
+static char bishopChar = 'B';
+static char knightChar = 'N';
+static char queenChar  = 'Q';
+static char kingChar   = 'K';
 
 char convertPieceTypeToChar(pieceType_t pt)
 {

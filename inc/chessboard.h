@@ -30,22 +30,6 @@
 
 class ChessBoard;
 
-typedef struct moveType_s
-{
-    // Alternate moves for the same chessboard state
-    // Enforce that the following move is always of equal
-    // or lower value
-    struct moveType_s *altMove;
-
-    // The move that lead to here
-    struct moveType_s *lastMove;
-
-    // The ChessBoard resulting from this move 
-    ChessBoard *resultCB;
-
-    char moveString[10];
-} moveType_t;
-
 /* Enum definining piece index */
 enum pieceType_t
 {
@@ -65,6 +49,24 @@ enum pieceType_t
     BLACK_PIECES
 };
 
+typedef struct moveType_s
+{
+    // Alternate moves for the same chessboard state
+    // Enforce that the following move is always of equal
+    // or lower value
+    struct moveType_s *altMove;
+
+    // The move that lead to here
+    struct moveType_s *lastMove;
+
+    // The ChessBoard resulting from this move 
+    ChessBoard *resultCB;
+
+    char moveString[4];
+
+    pieceType_t pt;
+} moveType_t;
+
 class ChessBoard
 {
 private:
@@ -81,12 +83,12 @@ private:
     moveType_t *movesToEvaluateAtThisDepth;
 
     moveType_t *movesToSearchFurther;
-
+    moveType_t *lastMove;
 
 public:
 
     ChessBoard(void);
-    ChessBoard(uint64_t *pieces, uint64_t occupiedm, uint64_t numMovesToEval);
+    ChessBoard(uint64_t *pieces, uint64_t occupied, uint64_t numMovesToEval, moveType_t *lastMove);
 
     uint64_t getPiece(pieceType_t pt) const { return pieces[pt]; };
     uint64_t getWhitePieces() const { return pieces[WHITE_PIECES]; };
@@ -109,6 +111,7 @@ public:
     void generateMoves(moveType_t *moveStart, pieceType_t pt);
     moveType_t *getNextMove(pieceType_t pt);
     moveType_t *buildMove(pieceType_t pt, uint64_t startIdx, uint64_t endIdx);
+    uint64_t applyMoveToBoard(moveType_t *moveToApply);
 
     void generatePawnMoves(pieceType_t pt, moveType_t *lastMove);
     void generateRookMoves(pieceType_t pt, moveType_t *lastMove);

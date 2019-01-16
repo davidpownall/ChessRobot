@@ -54,10 +54,12 @@ ChessBoard::ChessBoard(void)
 /**
  * ChessBoard constructor which takes in an existing board state
  * 
- * @param *pieces:  The current board position of all pieces
- * @param occupued: The set of all occupied squares
+ * @param *pieces:          The current board position of all pieces
+ * @param occupued:         The set of all occupied squares
+ * @param numMovesToEval:   Number of moves to evaluate at this depth
+ * @param *lastMove:        The move which generated this position
  */
-ChessBoard::ChessBoard(uint64_t *pieces, uint64_t occupied, uint64_t numMovesToEval)
+ChessBoard::ChessBoard(uint64_t *pieces, uint64_t occupied, uint64_t numMovesToEval, moveType_t *lastMove)
 {
 
     // Verify that our array is valid
@@ -68,8 +70,14 @@ ChessBoard::ChessBoard(uint64_t *pieces, uint64_t occupied, uint64_t numMovesToE
         return;
     } 
 
+    if(lastMove == NULL)
+    {
+        std::cout << "Bad last move provided to CB" << std::endl;
+        return;
+    }
+
     // Copy the board over
-    memcpy((void *) this->pieces, (void*) pieces, (NUM_PIECE_TYPES + 2) >> 1);
+    memcpy((void *) this->pieces, (void*) pieces, (NUM_PIECE_TYPES + 2)*sizeof(uint64_t));
 
     // @todo: Figure out a way to determine if an occupied bitboard is valid
     this->occupied = occupied;
@@ -77,6 +85,10 @@ ChessBoard::ChessBoard(uint64_t *pieces, uint64_t occupied, uint64_t numMovesToE
 
     this->numMovesAtThisDepth = numMovesToEval;
     this->movesToEvaluateAtThisDepth = (moveType_t *) malloc(this->numMovesAtThisDepth * sizeof(moveType_t));
+
+    this->lastMove = lastMove;
+    applyMoveToBoard(this->lastMove);
+
 
     if(this->movesToEvaluateAtThisDepth == NULL)
     {
@@ -109,6 +121,21 @@ void ChessBoard::generateMoves(moveType_t *moveStart, pieceType_t pt)
     generateKnightMoves(pt, &lastMove);
     generateQueenMoves(pt, &lastMove);
     generateKingMoves(pt, &lastMove);
+
+}
+
+uint64_t ChessBoard::applyMoveToBoard(moveType_t *moveToApply)
+{
+    //uint64_t startIdx;
+    //uint64_t endIdx;
+
+    if(moveToApply == NULL)
+    {
+        std::cout << "Move provided to board was NULL!" << std::endl;
+        return STATUS_FAIL;
+    }
+
+    return STATUS_FAIL;
 
 }
 
@@ -523,7 +550,6 @@ moveType_t *buildMove(pieceType_t pt, uint64_t startIdx, uint64_t endIdx)
 
     moveType_t *newMove;
 
-
     if(pt > NUM_PIECE_TYPES)
     {
         std::cout << "Invalid piece type for move!" << std::endl;
@@ -549,6 +575,8 @@ moveType_t *buildMove(pieceType_t pt, uint64_t startIdx, uint64_t endIdx)
     newMove->moveString[1] = ((char) (endIdx >> 3)) + '0';
     newMove->moveString[2] = (endIdx % 8);
 
+    // Denote the piece type
+    newMove->pt = pt;
     // Generate the board
 
     return newMove;
