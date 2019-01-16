@@ -1,5 +1,8 @@
 #include <cstdint>
 
+#ifndef CHESSBOARD_DEFINE
+#define CHESSBOARD_DEFINE
+
 #define WHITE_PAWN_START    0xff00
 #define BLACK_PAWN_START    0x00ff000000000000
 
@@ -23,12 +26,24 @@
 
 #define NUM_PIECE_TYPES     12
 #define MAX_EVAL_MOVES      40
+#define NUM_BOARD_INDICIES  64
+
+class ChessBoard;
 
 typedef struct moveType_s
 {
-    void *nextMove;
-    char move[10];
-    uint64_t moveValue;
+    // Alternate moves for the same chessboard state
+    // Enforce that the following move is always of equal
+    // or lower value
+    struct moveType_s *altMove;
+
+    // The move that lead to here
+    struct moveType_s *lastMove;
+
+    // The ChessBoard resulting from this move 
+    ChessBoard *resultCB;
+
+    char moveString[10];
 } moveType_t;
 
 /* Enum definining piece index */
@@ -65,6 +80,9 @@ private:
     uint64_t numMovesAtThisDepth;
     moveType_t *movesToEvaluateAtThisDepth;
 
+    moveType_t *movesToSearchFurther;
+
+
 public:
 
     ChessBoard(void);
@@ -90,6 +108,7 @@ public:
 
     void generateMoves(moveType_t *moveStart, pieceType_t pt);
     moveType_t *getNextMove(pieceType_t pt);
+    moveType_t *buildMove(pieceType_t pt, uint64_t startIdx, uint64_t endIdx);
 
     void generatePawnMoves(pieceType_t pt, moveType_t *lastMove);
     void generateRookMoves(pieceType_t pt, moveType_t *lastMove);
@@ -98,6 +117,10 @@ public:
     void generateQueenMoves(pieceType_t pt, moveType_t *lastMove);
     void generateKingMoves(pieceType_t pt, moveType_t *lastMove);
 
+    void spawnNextChessBoard(moveType_t *moveToExecute);
+
 };
 
 uint64_t initializeChessBoard(void);
+
+#endif // CHESSBOARD_DEFINE

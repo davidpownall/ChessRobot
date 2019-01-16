@@ -509,6 +509,64 @@ void ChessBoard::generateKingMoves(pieceType_t pt, moveType_t *lastMove)
 }
 
 /**
+ * Generates a move given the piece type, the start index, and the end index
+ * 
+ * @param pt:       The piece you are moving
+ * @param startIdx: The start index of the piece you are moving
+ * @param endIdx:   Where your piece is going to go
+ * 
+ * @note:   Assumption at this point is that the move is valid within the 
+ *          the rules of chess
+ */
+moveType_t *buildMove(pieceType_t pt, uint64_t startIdx, uint64_t endIdx)
+{
+
+    moveType_t *newMove;
+
+
+    if(pt > NUM_PIECE_TYPES)
+    {
+        std::cout << "Invalid piece type for move!" << std::endl;
+        return NULL;
+    }
+
+    if(!(startIdx < NUM_BOARD_INDICIES && endIdx < NUM_BOARD_INDICIES)
+        && startIdx != endIdx)
+    {
+        std::cout << "Invalid indicies provided for move" << std::endl;
+        return NULL;
+    }
+
+    newMove = (moveType_t *) malloc(sizeof(moveType_t));
+    if(newMove == NULL)
+    {
+        std::cout << "Failed to allocate memory for new move!" << std::endl;
+        return NULL;
+    }
+
+    // Move is made
+    newMove->moveString[0] = convertPieceTypeToChar(pt);
+    newMove->moveString[1] = ((char) (endIdx >> 3)) + '0';
+    newMove->moveString[2] = (endIdx % 8);
+
+    // Generate the board
+
+    return newMove;
+
+}
+
+
+void ChessBoard::spawnNextChessBoard(moveType_t *moveToExecute)
+{
+    // @todo: Write this function
+
+    // Translates move to to modification of board position
+
+    // Pass translated piece positions to new chessboard
+    // along with relevant pieces
+}
+
+/**
  * Algorithm for selecting moves:
  * 
  *  We know: 
