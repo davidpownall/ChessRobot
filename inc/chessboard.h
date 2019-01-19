@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <queue>
 
 #ifndef CHESSBOARD_DEFINE
 #define CHESSBOARD_DEFINE
@@ -59,13 +60,9 @@ enum pieceType_e
 
 typedef struct moveType_s
 {
-    // Alternate moves for the same chessboard state
-    // Enforce that the following move is always of equal
-    // or lower value
-    struct moveType_s *altMove;
 
-    // The move that lead to here
-    struct moveType_s *lastMove;
+    // The ChessBoard where this move was made
+    ChessBoard *currentCB;
 
     // The ChessBoard resulting from this move 
     ChessBoard *resultCB;
@@ -78,6 +75,13 @@ typedef struct moveType_s
 
     // What piece we are moving
     pieceType_e pt;
+
+    // How we can compare two moves
+    bool operator<(const struct moveType_s*& rhs) const
+    {
+        return resultCB->getCurrentValue() < rhs->resultCB->getCurrentValue();
+    }
+
 } moveType_t;
 
 class ChessBoard
@@ -92,10 +96,15 @@ private:
     /* Positions of all empty squares */
     uint64_t empty;
 
+    // The current value of the chessboard
+    //      Positive = white's advantage
+    //      Negative = black's advantage
+    int64_t value;
+
     uint64_t numMovesAtThisDepth;
     moveType_t *movesToEvaluateAtThisDepth;
 
-    moveType_t *movesToSearchFurther;
+    std::priority_queue<moveType_t*> availableMoves;
     moveType_t *lastMove;
 
 public:
@@ -120,6 +129,9 @@ public:
     uint64_t getBlackBishops() const { return pieces[BLACK_BISHOP]; };
     uint64_t getBlackQueen() const { return pieces[BLACK_QUEEN]; };
     uint64_t getBlackKing() const { return pieces[BLACK_KING]; };
+
+    int64_t getCurrentValue() const {return value;}
+    static int64_t evaluateCurrentBoardValue(ChessBoard *cb);
 
     void generateMoves(pieceType_e pt);
     moveType_t *getNextMove(pieceType_e pt);

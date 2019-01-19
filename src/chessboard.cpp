@@ -51,6 +51,9 @@ ChessBoard::ChessBoard(void)
         return;        
     }
 
+    // Value is 0 at game start
+    this->value = 0;
+
 }
 
 /**
@@ -168,13 +171,6 @@ void ChessBoard::generatePawnMoves(pieceType_e pt)
     uint64_t pawns = this->pieces[pt];
     uint64_t friendlyPieces;
 
-    // This should never happen
-    if(lastMove == NULL)
-    {
-        std::cout << "Movetype ptr passed in was NULL, this should never happen!" << std::endl;
-        return;
-    }
-
     // All your pawns are dead, don't bother
     if(pawns == 0)
     {
@@ -287,13 +283,6 @@ void ChessBoard::generateRookMoves(pieceType_e pt)
         return;
     }
 
-    // This should never happen
-    if(lastMove == NULL)
-    {
-        std::cout << "Movetype ptr passed in was NULL, this should never happen!" << std::endl;
-        return;
-    }
-
     // Avenues of attack are up shift 8, down shift 8, right shift 1, left shift 1
     // All of these are until edge
 
@@ -398,13 +387,6 @@ void ChessBoard::generateBishopMoves(pieceType_e pt)
     // No bishops left
     if(bishops == 0)
     {
-        return;
-    }
-
-    // This should never happen
-    if(lastMove == NULL)
-    {
-        std::cout << "Movetype ptr passed in was NULL, this should never happen!" << std::endl;
         return;
     }
 
@@ -686,21 +668,28 @@ void ChessBoard::buildMove(pieceType_e pt, uint64_t startIdx, uint64_t endIdx, m
     // Denote what type of move this is
     newMove->moveVal = moveVal;
     
-    // Generate the resultant board
+    // Generate the resultant board -- value will be calculated
     this->spawnNextChessBoard(newMove);
 
     // Add this move to the list of possible moves at this board position
+    this->availableMoves.push(newMove);
+}
+
+int64_t ChessBoard::evaluateCurrentBoardValue(ChessBoard *cb)
+{
+    //@todo
+    return 0;
 }
 
 
 void ChessBoard::spawnNextChessBoard(moveType_t *moveToExecute)
 {
     // @todo: Write this function
+    ASSERT(moveToExecute != NULL, "Move provided was NULL");
 
-    // Translates move to to modification of board position
+    ChessBoard *cb = new ChessBoard(this->pieces, this->occupied, this->numMovesAtThisDepth - 10, moveToExecute);
+    ASSERT(cb != NULL, "Failed to allocate new chessboard");
 
-    // Pass translated piece positions to new chessboard
-    // along with relevant pieces
 }
 
 /**
