@@ -8,7 +8,7 @@ static char knightChar = 'N';
 static char queenChar  = 'Q';
 static char kingChar   = 'K';
 
-char convertPieceTypeToChar(pieceType_t pt)
+char convertPieceTypeToChar(pieceType_e pt)
 {
     // @todo Convert this to a macro
     switch(pt)
@@ -41,4 +41,28 @@ char convertPieceTypeToChar(pieceType_t pt)
             return 0;
     }
 
+}
+
+/**
+ * Basic assertion function for catching runtime errors. I would
+ * use the C++ assert but that terminates the program, and I would
+ * rather hang execution so I can see the callstack immediately on
+ * failure. 
+ * 
+ * @param expr: The actual assertion which must be true
+ * @param str:  The output string to go to console output
+ */
+void ASSERT(bool expr, std::string str)
+{
+#if DEBUG_BUILD
+    if(!expr)
+    {
+        std::cout << str << std::endl;
+        std::cout << "Program hanging" << std::endl;
+        while(true)
+        {
+            ;
+        }
+    }
+#endif // DEBUG_BUILD
 }

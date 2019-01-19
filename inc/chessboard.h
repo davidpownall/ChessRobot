@@ -30,8 +30,16 @@
 
 class ChessBoard;
 
+/* Enum defining results of potential move evaluation */
+enum moveValidity_e
+{
+    MOVE_INVALID,
+    MOVE_VALID,
+    MOVE_VALID_ATTACK
+};
+
 /* Enum definining piece index */
-enum pieceType_t
+enum pieceType_e
 {
     WHITE_PAWN,
     WHITE_ROOK,
@@ -62,9 +70,14 @@ typedef struct moveType_s
     // The ChessBoard resulting from this move 
     ChessBoard *resultCB;
 
+    // The actual chars containing the chess move
     char moveString[4];
 
-    pieceType_t pt;
+    // What type of move is this?
+    moveValidity_e moveVal;
+
+    // What piece we are moving
+    pieceType_e pt;
 } moveType_t;
 
 class ChessBoard
@@ -90,7 +103,7 @@ public:
     ChessBoard(void);
     ChessBoard(uint64_t *pieces, uint64_t occupied, uint64_t numMovesToEval, moveType_t *lastMove);
 
-    uint64_t getPiece(pieceType_t pt) const { return pieces[pt]; };
+    uint64_t getPiece(pieceType_e pt) const { return pieces[pt]; };
     uint64_t getWhitePieces() const { return pieces[WHITE_PIECES]; };
     uint64_t getBlackPieces() const { return pieces[BLACK_PIECES]; };
 
@@ -108,17 +121,19 @@ public:
     uint64_t getBlackQueen() const { return pieces[BLACK_QUEEN]; };
     uint64_t getBlackKing() const { return pieces[BLACK_KING]; };
 
-    void generateMoves(moveType_t *moveStart, pieceType_t pt);
-    moveType_t *getNextMove(pieceType_t pt);
-    moveType_t *buildMove(pieceType_t pt, uint64_t startIdx, uint64_t endIdx);
+    void generateMoves(pieceType_e pt);
+    moveType_t *getNextMove(pieceType_e pt);
+    void buildMove(pieceType_e pt, uint64_t startIdx, uint64_t endIdx, moveValidity_e moveVal);
     uint64_t applyMoveToBoard(moveType_t *moveToApply);
 
-    void generatePawnMoves(pieceType_t pt, moveType_t *lastMove);
-    void generateRookMoves(pieceType_t pt, moveType_t *lastMove);
-    void generateBishopMoves(pieceType_t pt, moveType_t *lastMove);
-    void generateKnightMoves(pieceType_t pt, moveType_t *lastMove);
-    void generateQueenMoves(pieceType_t pt, moveType_t *lastMove);
-    void generateKingMoves(pieceType_t pt, moveType_t *lastMove);
+    moveValidity_e checkSpaceForMoveOrAttack(uint64_t idxToEval, pieceType_e enemyPieces);
+
+    void generatePawnMoves(pieceType_e pt);
+    void generateRookMoves(pieceType_e pt);
+    void generateBishopMoves(pieceType_e pt);
+    void generateKnightMoves(pieceType_e pt);
+    void generateQueenMoves(pieceType_e pt);
+    void generateKingMoves(pieceType_e pt);
 
     void spawnNextChessBoard(moveType_t *moveToExecute);
 
