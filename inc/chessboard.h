@@ -67,8 +67,14 @@ typedef struct moveType_s
     // The ChessBoard resulting from this move 
     ChessBoard *resultCB;
 
+    // The value of the board resulting from the move
+    uint64_t resultValue;
+
     // The actual chars containing the chess move
     char moveString[4];
+
+    uint64_t startIdx;
+    uint64_t endIdx;
 
     // What type of move is this?
     moveValidity_e moveVal;
@@ -79,7 +85,7 @@ typedef struct moveType_s
     // How we can compare two moves
     bool operator<(const struct moveType_s*& rhs) const
     {
-        return resultCB->getCurrentValue() < rhs->resultCB->getCurrentValue();
+        return resultValue < rhs->resultValue;
     }
 
 } moveType_t;

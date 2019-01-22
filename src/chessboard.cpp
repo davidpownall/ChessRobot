@@ -137,10 +137,17 @@ void ChessBoard::generateMoves(pieceType_e pt)
     }
 }
 
+/**
+ * Applies the current move to the chessboard
+ * 
+ * @param *moveToApply: The move to apply
+ * 
+ * @returns: STATUS_SUCESS or STATUS_FAIL
+ */
 uint64_t ChessBoard::applyMoveToBoard(moveType_t *moveToApply)
 {
-    //uint64_t startIdx;
-    //uint64_t endIdx;
+
+    uint64_t friendlyPieces, enemyPieces;
 
     if(moveToApply == NULL)
     {
@@ -148,7 +155,78 @@ uint64_t ChessBoard::applyMoveToBoard(moveType_t *moveToApply)
         return STATUS_FAIL;
     }
 
-    return STATUS_FAIL;
+    // We know that any chess move passed to us will have to be
+    // generated to comform to the rules of chess, therefore minimal
+    // checking should be required...but this is C++ and literally
+    // anything can happen with memory overruns so we may as well
+    // check for the obvious stuff.
+
+    // 1) Are our indicies valid?
+    if(moveToApply->startIdx >= NUM_BOARD_INDICIES
+        || moveToApply->endIdx >= NUM_BOARD_INDICIES)
+    {
+        std::cout << "Move indicies were bad!" << std::endl;
+        return STATUS_FAIL;        
+    }
+
+    // 2) Is our piecetype actually valid?
+    if(moveToApply->pt >= NUM_PIECE_TYPES)
+    {
+        std::cout << "Piece type provided to board was bad" << std::endl;
+        return STATUS_FAIL;
+    }
+
+    // 3) Is there actually a piece of this piece type actually at the
+    //    start index?
+    if(this->pieces[moveToApply->pt] & (1 << moveToApply->startIdx) == 0)
+    {
+        std::cout << "No piece of piecetype at expexted startIdx" << std::endl;
+        return STATUS_FAIL;        
+    }
+    
+    if(moveToApply->pt < (NUM_PIECE_TYPES/2))
+    {
+        friendlyPieces = WHITE_PIECES;
+        enemyPieces = BLACK_PIECES;
+    }
+    else
+    {
+        friendlyPieces = BLACK_PIECES;
+        enemyPieces = WHITE_PIECES;
+    }
+
+    // 4) Is our end index occupied by our color
+    if(this->pieces[friendlyPieces] & (1 << moveToApply->endIdx) > 1)
+    {
+        std::cout << "There was a friendly piece where we wanted to move!" << std::endl;
+        return STATUS_FAIL;
+    }
+
+    // Apply the move for our piece type
+    this->pieces[moveToApply->pt] ^= (1 << moveToApply->startIdx);
+    this->pieces[moveToApply->pt] |= (1 << moveToApply->endIdx);
+
+    // Apply the move for our color
+    this->pieces[friendlyPieces] ^= (1 << moveToApply->startIdx);
+    this->pieces[friendlyPieces] |= (1 << moveToApply->endIdx);
+
+    // If we are taking a piece, clear that square
+    this->pieces[enemyPieces] &= ~(1 << moveToApply->endIdx);
+    for(uint64_t i = (uint64_t) enemyPieces; i < NUM_PIECE_TYPES/2; ++i)
+    {
+        this->pieces[(pieceType_e) i] &= ~(1 << moveToApply->endIdx);
+    }
+
+    // Ancillary bitboards also need to be updated
+    this->occupied &= ~(1 << moveToApply->endIdx);
+    this->occupied |= (1 << moveToApply->endIdx);
+
+    // Move is now applied 
+
+    // @todo: Are we attempting to make a move while our king is in check
+    //    that doesn't remove our king from check after applying the move
+
+    return STATUS_SUCCESS;
 
 }
 
@@ -654,8 +732,12 @@ void ChessBoard::buildMove(pieceType_e pt, uint64_t startIdx, uint64_t endIdx, m
     ASSERT(startIdx < NUM_BOARD_INDICIES && endIdx < NUM_BOARD_INDICIES
         && startIdx != endIdx, "Invalid indicies provided for move");
 
+
     newMove = (moveType_t *) malloc(sizeof(moveType_t));
     ASSERT(newMove != NULL, "Failed to allocate memory for new move!");
+
+    newMove->startIdx = startIdx;
+    newMove->endIdx = endIdx;
 
     // Move is made
     newMove->moveString[0] = convertPieceTypeToChar(pt);
