@@ -243,17 +243,18 @@ uint64_t ChessBoard::applyMoveToBoard(moveType_t *moveToApply)
 void ChessBoard::generatePawnMoves(pieceType_e pt)
 {
     // Pawns can move forward, or diagonally to strike, or en passant (tricky)
-    bool countUp = (pt == WHITE_PAWN), forwardPossible;
-    uint64_t pawn;
-    int32_t forward, diagLeft, diagRight;
-    uint64_t pawns = this->pieces[pt];
-    uint64_t friendlyPieces;
+    uint64_t pawn, pawns = this->pieces[pt];   
+    moveType_t *lastMove;
 
     // All your pawns are dead, don't bother
     if(pawns == 0)
     {
         return;
     }
+
+    ASSERT(pt == WHITE_PAWN || pt == BLACK_PAWN, "Pawn move passed bad piecetype");
+
+    lastMove = this->lastMove;
 
     if(pt == WHITE_PAWN)
     {
@@ -296,15 +297,36 @@ void ChessBoard::generatePawnMoves(pieceType_e pt)
                 this->buildMove(WHITE_PAWN, __builtin_clz(pawn), i + 9, MOVE_VALID);
             }
 
-            // En-passent @todo
-        }
+            // En passant check
 
+            // Check if this is the first move
+            if(lastMove == NULL)
+            {
+                continue;
+            }
+
+            // Was the last move a black pawn pushing up by two
+            if( (lastMove != NULL)
+                && (lastMove->pt == BLACK_PAWN )
+                && (lastMove->endIdx == lastMove->startIdx - 16))
+            {
+                // Can we look to the left and did the pawn land there
+                if((i % 8 > 0) && ((i - lastMove->endIdx) == 1))
+                {
+                    this->buildMove(WHITE_PAWN, __builtin_clz(pawn), i + 7, MOVE_VALID_ATTACK);
+                }
+                // Can we look to the right and did the pawn land there
+                if((i % 8 < 7) && ((lastMove->endIdx - i) == 1))
+                {
+                    this->buildMove(WHITE_PAWN, __builtin_clz(pawn), i + 9, MOVE_VALID_ATTACK);
+                }          
+            }        
+        }
     }
     else
     {
         for(uint64_t i = __builtin_ctz(this->pieces[pt]); i < 64; --i)
         {
-            
 
             pawn = (1 << i);
         
@@ -342,9 +364,32 @@ void ChessBoard::generatePawnMoves(pieceType_e pt)
                 this->buildMove(BLACK_PAWN, __builtin_clz(pawn), i - 7, MOVE_VALID_ATTACK);
             }
 
-            // En-passent @todo
+            // En passant check
+
+            // Check if this is the first move
+            if(lastMove == NULL)
+            {
+                continue;
+            }
+
+            // Was the last move a white pawn pushing up by two
+            if( (lastMove != NULL)
+                && (lastMove->pt == WHITE_PAWN )
+                && (lastMove->endIdx == lastMove->startIdx + 16))
+            {
+                // Can we look to the left and did the pawn land there
+                if((i % 8 > 0) && ((i - lastMove->endIdx) == 1))
+                {
+                    this->buildMove(BLACK_PAWN, __builtin_clz(pawn), i - 9, MOVE_VALID_ATTACK);
+                }
+                // Can we look to the right and did the pawn land there
+                if((i % 8 < 7) && ((lastMove->endIdx - i) == 1))
+                {
+                    this->buildMove(BLACK_PAWN, __builtin_clz(pawn), i - 7, MOVE_VALID_ATTACK);
+                }          
+            }
         }
-    }
+    }   
 }
 
 void ChessBoard::generateRookMoves(pieceType_e pt)
@@ -739,7 +784,7 @@ void ChessBoard::buildMove(pieceType_e pt, uint64_t startIdx, uint64_t endIdx, m
     newMove->startIdx = startIdx;
     newMove->endIdx = endIdx;
 
-    // Move is made
+    // Move string, only for interace with UCI
     newMove->moveString[0] = convertPieceTypeToChar(pt);
     newMove->moveString[1] = ((char) (endIdx >> 3)) + '0';
     newMove->moveString[2] = (endIdx % 8);
