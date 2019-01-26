@@ -29,7 +29,7 @@ int main()
     // @todo: Create UCI
 
     std::cout << "Creating the board representation" << std::endl;
-    status = initializeChessBoard();
+    status = InitializeChessBoard();
     std::cout << "Status: " << status << std::endl;
 
 

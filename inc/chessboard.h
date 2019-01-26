@@ -76,6 +76,10 @@ typedef struct moveType_s
     uint64_t startIdx;
     uint64_t endIdx;
 
+    // Forms the move list for currentCB. Enforce that the list is always
+    // in descending order based on the value of the output board
+    struct moveType_s *adjMove;
+
     // What type of move is this?
     moveValidity_e moveVal;
 
@@ -83,10 +87,17 @@ typedef struct moveType_s
     pieceType_e pt;
 
     // How we can compare two moves
-    bool operator<(const struct moveType_s*& rhs) const
+    bool operator<(const struct moveType_s rhs) const
     {
-        return resultValue < rhs->resultValue;
+        return resultValue < rhs.resultValue;
     }
+
+    bool operator<=(const struct moveType_s rhs) const
+    {
+        return resultValue <= rhs.resultValue;
+    }
+
+    // @todo: Add more operators if necessary
 
 } moveType_t;
 
@@ -109,8 +120,6 @@ private:
 
     uint64_t numMovesAtThisDepth;
     moveType_t *movesToEvaluateAtThisDepth;
-
-    std::priority_queue<moveType_t*> availableMoves;
     moveType_t *lastMove;
 
 public:
@@ -118,45 +127,47 @@ public:
     ChessBoard(void);
     ChessBoard(uint64_t *pieces, uint64_t occupied, uint64_t numMovesToEval, moveType_t *lastMove);
 
-    uint64_t getPiece(pieceType_e pt) const { return pieces[pt]; };
-    uint64_t getWhitePieces() const { return pieces[WHITE_PIECES]; };
-    uint64_t getBlackPieces() const { return pieces[BLACK_PIECES]; };
+    uint64_t GetPiece(pieceType_e pt) const { return pieces[pt]; };
+    uint64_t GetWhitePieces() const { return pieces[WHITE_PIECES]; };
+    uint64_t GetBlackPieces() const { return pieces[BLACK_PIECES]; };
 
-    uint64_t getWhitePawns() const { return pieces[WHITE_PAWN]; };
-    uint64_t getWhiteRooks() const { return pieces[WHITE_ROOK]; };
-    uint64_t getWhiteKnights() const { return pieces[WHITE_KNIGHT]; }; 
-    uint64_t getWhiteBishops() const { return pieces[WHITE_BISHOP]; }; 
-    uint64_t getWhiteQueen() const { return pieces[WHITE_QUEEN]; };
-    uint64_t getWhiteKing() const { return pieces[WHITE_KING]; };
+    uint64_t GetWhitePawns() const { return pieces[WHITE_PAWN]; };
+    uint64_t GetWhiteRooks() const { return pieces[WHITE_ROOK]; };
+    uint64_t GetWhiteKnights() const { return pieces[WHITE_KNIGHT]; }; 
+    uint64_t GetWhiteBishops() const { return pieces[WHITE_BISHOP]; }; 
+    uint64_t GetWhiteQueen() const { return pieces[WHITE_QUEEN]; };
+    uint64_t GetWhiteKing() const { return pieces[WHITE_KING]; };
     
-    uint64_t getBlackPawns() const { return pieces[BLACK_PAWN]; };
-    uint64_t getBlackRooks() const { return pieces[BLACK_ROOK]; };
-    uint64_t getBlackKnights() const { return pieces[BLACK_KNIGHT]; };
-    uint64_t getBlackBishops() const { return pieces[BLACK_BISHOP]; };
-    uint64_t getBlackQueen() const { return pieces[BLACK_QUEEN]; };
-    uint64_t getBlackKing() const { return pieces[BLACK_KING]; };
+    uint64_t GetBlackPawns() const { return pieces[BLACK_PAWN]; };
+    uint64_t GetBlackRooks() const { return pieces[BLACK_ROOK]; };
+    uint64_t GetBlackKnights() const { return pieces[BLACK_KNIGHT]; };
+    uint64_t GetBlackBishops() const { return pieces[BLACK_BISHOP]; };
+    uint64_t GetBlackQueen() const { return pieces[BLACK_QUEEN]; };
+    uint64_t GetBlackKing() const { return pieces[BLACK_KING]; };
 
-    int64_t getCurrentValue() const {return value;}
-    static int64_t evaluateCurrentBoardValue(ChessBoard *cb);
+    int64_t GetCurrentValue() const {return value;}
+    static int64_t EvaluateCurrentBoardValue(ChessBoard *cb);
 
-    void generateMoves(pieceType_e pt);
-    moveType_t *getNextMove(pieceType_e pt);
-    void buildMove(pieceType_e pt, uint64_t startIdx, uint64_t endIdx, moveValidity_e moveVal);
-    uint64_t applyMoveToBoard(moveType_t *moveToApply);
+    void GenerateMoves(pieceType_e pt);
+    moveType_t *GetNextMove(pieceType_e pt);
+    void BuildMove(pieceType_e pt, uint64_t startIdx, uint64_t endIdx, moveValidity_e moveVal);
+    uint64_t ApplyMoveToBoard(moveType_t *moveToApply);
 
-    moveValidity_e checkSpaceForMoveOrAttack(uint64_t idxToEval, pieceType_e enemyPieces);
+    static void AddMoveToMoveList(ChessBoard *cb, moveType_t *moveToAdd);
 
-    void generatePawnMoves(pieceType_e pt);
-    void generateRookMoves(pieceType_e pt);
-    void generateBishopMoves(pieceType_e pt);
-    void generateKnightMoves(pieceType_e pt);
-    void generateQueenMoves(pieceType_e pt);
-    void generateKingMoves(pieceType_e pt);
+    moveValidity_e CheckSpaceForMoveOrAttack(uint64_t idxToEval, pieceType_e enemyPieces);
 
-    void spawnNextChessBoard(moveType_t *moveToExecute);
+    void GeneratePawnMoves(pieceType_e pt);
+    void GenerateRookMoves(pieceType_e pt);
+    void GenerateBishopMoves(pieceType_e pt);
+    void GenerateKnightMoves(pieceType_e pt);
+    void GenerateQueenMoves(pieceType_e pt);
+    void GenerateKingMoves(pieceType_e pt);
+
+    void SpawnNextChessBoard(moveType_t *moveToExecute);
 
 };
 
-uint64_t initializeChessBoard(void);
+uint64_t InitializeChessBoard(void);
 
 #endif // CHESSBOARD_DEFINE

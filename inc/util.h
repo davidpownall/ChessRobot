@@ -11,7 +11,7 @@
 #define STATUS_SUCCESS  (0)
 #define STATUS_FAIL     (1)
 
-char convertPieceTypeToChar(pieceType_e pt);
-void ASSERT(bool expr, std::string str);
+char Util_ConvertPieceTypeToChar(pieceType_e pt);
+void Util_Assert(bool expr, std::string str);
 
 #endif // UTIL_DEFINE

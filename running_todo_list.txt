@@ -1,0 +1,22 @@
+things to do:
+
+1) Finalize all valid movement generation
+    - Castling
+    - Kings
+        - Kings need extra love
+        - Need to know that they are not under threat in a given situation
+        - Is king in check?
+        - Is the location that the king is moving to safe?
+        - Check behavior
+
+2) Connect all moves to move maker
+3) Update all comments and doxygen/headers/bs
+5) Decouple moves from function protoypes for generating moves
+    - Moves are now a member of the class
+6) Decouple move evaluation from move generation
+    - Well in reality this may not work out as originally intended, because
+      in order to sort based on move values, we need to evaluate the follow-on
+      board and 
+7) Ensure that moves are in a sorted order
+8) Basic function for calculating chessboard value for a given position
+9) Clean up basic Util_Assert procedure vs error return codes

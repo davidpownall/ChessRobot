@@ -8,7 +8,7 @@ static char knightChar = 'N';
 static char queenChar  = 'Q';
 static char kingChar   = 'K';
 
-char convertPieceTypeToChar(pieceType_e pt)
+char Util_ConvertPieceTypeToChar(pieceType_e pt)
 {
     // @todo Convert this to a macro
     switch(pt)
@@ -44,15 +44,15 @@ char convertPieceTypeToChar(pieceType_e pt)
 }
 
 /**
- * Basic assertion function for catching runtime errors. I would
- * use the C++ assert but that terminates the program, and I would
+ * Basic Util_Assertion function for catching runtime errors. I would
+ * use the C++ Util_Assert but that terminates the program, and I would
  * rather hang execution so I can see the callstack immediately on
  * failure. 
  * 
- * @param expr: The actual assertion which must be true
+ * @param expr: The actual Util_Assertion which must be true
  * @param str:  The output string to go to console output
  */
-void ASSERT(bool expr, std::string str)
+void Util_Assert(bool expr, std::string str)
 {
 #if DEBUG_BUILD
     if(!expr)
