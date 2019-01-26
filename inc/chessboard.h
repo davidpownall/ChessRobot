@@ -154,6 +154,7 @@ public:
     uint64_t ApplyMoveToBoard(moveType_t *moveToApply);
 
     static void AddMoveToMoveList(ChessBoard *cb, moveType_t *moveToAdd);
+    static void DeleteMove(moveType_t *moveToDelete);
 
     moveValidity_e CheckSpaceForMoveOrAttack(uint64_t idxToEval, pieceType_e enemyPieces);
 

@@ -111,8 +111,14 @@ ChessBoard::ChessBoard(uint64_t *pieces, uint64_t occupied, uint64_t numMovesToE
  */
 void ChessBoard::GenerateMoves(pieceType_e pt)
 {
+    moveType_t *moveListIdx, *moveListTemp;
+    pieceType_e nextPt;
+    uint64_t i = 1;
+
     if(pt == WHITE_PIECES)
     {
+        nextPt = BLACK_PIECES;
+
         // Generate possible plays for white
         GeneratePawnMoves(WHITE_PAWN);
         GenerateRookMoves(WHITE_ROOK);
@@ -123,6 +129,8 @@ void ChessBoard::GenerateMoves(pieceType_e pt)
     }
     else if (pt == BLACK_PIECES)
     {
+        nextPt = WHITE_PIECES;
+
         // Generate possible plays for black
         GeneratePawnMoves(BLACK_PAWN);
         GenerateRookMoves(BLACK_ROOK);
@@ -137,8 +145,70 @@ void ChessBoard::GenerateMoves(pieceType_e pt)
     }
 
     // So now we have all possible moves. We know that our moves are stored
-    // as priority queue based on the value of the 
+    // as a linked list with the best moves already at the front. We want
+    // to free up the moves & boards of all moves we do not want to use moving
+    // forward at this depth. It almost certainly better to free up as much
+    // in-use memory as possible prior to executing the next level of our DFS
 
+    moveListIdx = this->movesToEvaluateAtThisDepth;
+    while(moveListIdx != NULL && i < this->numMovesAtThisDepth)
+    {
+        if(i > 0)
+        {
+            moveListTemp = moveListIdx;
+        }
+
+        if(i ==  this->numMovesAtThisDepth - 1)
+        {
+            moveListTemp = moveListIdx;
+        }
+
+        moveListIdx = moveListIdx->adjMove;
+        i++;
+
+    }
+
+    moveListTemp->adjMove = NULL;
+
+    // We know we have moves to delete if this is true
+    if(moveListIdx != NULL && i == this->numMovesAtThisDepth)
+    {
+        // So delete the moves
+        while(moveListIdx != NULL){
+
+            moveListTemp = moveListIdx->adjMove;
+            ChessBoard::DeleteMove(moveListIdx);
+            moveListIdx = moveListTemp;
+        }
+    }
+
+    moveListIdx = this->movesToEvaluateAtThisDepth;
+    while(moveListIdx != NULL && i < this->numMovesAtThisDepth)
+    {
+        Util_Assert(moveListIdx->resultCB != NULL, "Move had null Chessboard!");
+        
+        // This will create all moves for the next chessboard
+        moveListIdx->resultCB->GenerateMoves(nextPt);
+        moveListIdx = moveListIdx->adjMove;
+        i++;
+    }
+
+    // At this point, the DFS for this board is complete
+
+}
+
+/**
+ * Runs through the deletion procedure for a given move
+ * 
+ * @param moveToDelete  The move to delete
+ */
+void ChessBoard::DeleteMove(moveType_t *moveToDelete)
+{
+    Util_Assert(moveToDelete != NULL, "Move to delete was already NULL");
+
+    //@todo implement this
+
+    return;
 }
 
 /**
