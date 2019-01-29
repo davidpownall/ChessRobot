@@ -118,14 +118,14 @@ private:
     //      Negative = black's advantage
     int64_t value;
 
-    uint64_t numMovesAtThisDepth;
+    uint64_t searchDepth;
     moveType_t *movesToEvaluateAtThisDepth;
     moveType_t *lastMove;
 
 public:
 
     ChessBoard(void);
-    ChessBoard(uint64_t *pieces, uint64_t occupied, uint64_t numMovesToEval, moveType_t *lastMove);
+    ChessBoard(uint64_t *pieces, uint64_t occupied, uint64_t searchDepth, moveType_t *lastMove);
 
     uint64_t GetPiece(pieceType_e pt) const { return pieces[pt]; };
     uint64_t GetWhitePieces() const { return pieces[WHITE_PIECES]; };
@@ -146,7 +146,7 @@ public:
     uint64_t GetBlackKing() const { return pieces[BLACK_KING]; };
 
     int64_t GetCurrentValue() const {return value;}
-    static int64_t EvaluateCurrentBoardValue(ChessBoard *cb);
+    static void EvaluateCurrentBoardValue(ChessBoard *cb);
 
     void GenerateMoves(pieceType_e pt);
     moveType_t *GetNextMove(pieceType_e pt);
@@ -169,6 +169,7 @@ public:
 
 };
 
+int64_t GetPositionValueFromTable(uint64_t pieceTypeBase, uint64_t idx);
 uint64_t InitializeChessBoard(void);
 
 #endif // CHESSBOARD_DEFINE

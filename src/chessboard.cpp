@@ -3,6 +3,18 @@
 #include "chessboard.h"
 
 static ChessBoard *cb;
+static moveType_t *globalBestMove;
+
+static const uint64_t movesAtSearchDepth[] = 
+{  
+    40,
+    30,
+    20,
+    10,
+    5,
+    1
+};
+#define SEARCH_DEPTH sizeof(movesAtSearchDepth) / sizeof(uint64_t)
 
 /**
  * Default constructor for the ChessBoard class. Creates a fresh board
@@ -40,16 +52,7 @@ ChessBoard::ChessBoard(void)
     }
     this->empty = ~(this->occupied);
 
-    this->numMovesAtThisDepth = MAX_EVAL_MOVES;
-
-    // @todo: Come back to this. I am not sure if this is the best approach.
-    // this->movesToEvaluateAtThisDepth = (moveType_t *) malloc(this->numMovesAtThisDepth * sizeof(moveType_t));
-
-    if(this->movesToEvaluateAtThisDepth == NULL)
-    {
-        std::cout << "Failed to allocate move memory" << std::endl;
-        return;        
-    }
+    this->searchDepth = 0;
 
     // Value is 0 at game start
     this->value = 0;
@@ -61,10 +64,10 @@ ChessBoard::ChessBoard(void)
  * 
  * @param *pieces:          The current board position of all pieces
  * @param occupued:         The set of all occupied squares
- * @param numMovesToEval:   Number of moves to evaluate at this depth
+ * @param searchDepth:   Number of moves to evaluate at this depth
  * @param *lastMove:        The move which generated this position
  */
-ChessBoard::ChessBoard(uint64_t *pieces, uint64_t occupied, uint64_t numMovesToEval, moveType_t *lastMove)
+ChessBoard::ChessBoard(uint64_t *pieces, uint64_t occupied, uint64_t searchDepth, moveType_t *lastMove)
 {
 
     // Verify that our array is valid
@@ -88,19 +91,13 @@ ChessBoard::ChessBoard(uint64_t *pieces, uint64_t occupied, uint64_t numMovesToE
     this->occupied = occupied;
     this->empty = ~occupied;
 
-    this->numMovesAtThisDepth = numMovesToEval;
-    // @todo: Come back to this. I am not sure if this is the best approach.
-    // this->movesToEvaluateAtThisDepth = (moveType_t *) malloc(this->numMovesAtThisDepth * sizeof(moveType_t));
+    this->searchDepth = searchDepth;
 
     this->lastMove = lastMove;
+    //@todo: Make function static
     this->ApplyMoveToBoard(this->lastMove);
 
-
-    if(this->movesToEvaluateAtThisDepth == NULL)
-    {
-        std::cout << "Failed to allocate move memory" << std::endl;
-        return;        
-    }
+    ChessBoard::EvaluateCurrentBoardValue(this);
 
 }
 
@@ -151,14 +148,14 @@ void ChessBoard::GenerateMoves(pieceType_e pt)
     // in-use memory as possible prior to executing the next level of our DFS
 
     moveListIdx = this->movesToEvaluateAtThisDepth;
-    while(moveListIdx != NULL && i < this->numMovesAtThisDepth)
+    while(moveListIdx != NULL && i < movesAtSearchDepth[this->searchDepth])
     {
         if(i > 0)
         {
             moveListTemp = moveListIdx;
         }
 
-        if(i ==  this->numMovesAtThisDepth - 1)
+        if(i ==  movesAtSearchDepth[this->searchDepth] - 1)
         {
             moveListTemp = moveListIdx;
         }
@@ -171,7 +168,7 @@ void ChessBoard::GenerateMoves(pieceType_e pt)
     moveListTemp->adjMove = NULL;
 
     // We know we have moves to delete if this is true
-    if(moveListIdx != NULL && i == this->numMovesAtThisDepth)
+    if(moveListIdx != NULL && i == movesAtSearchDepth[this->searchDepth])
     {
         // So delete the moves
         while(moveListIdx != NULL){
@@ -183,7 +180,15 @@ void ChessBoard::GenerateMoves(pieceType_e pt)
     }
 
     moveListIdx = this->movesToEvaluateAtThisDepth;
-    while(moveListIdx != NULL && i < this->numMovesAtThisDepth)
+
+    // We are the end of our DFS and we have found a new best value
+    if(movesAtSearchDepth[this->searchDepth] == 1 && *globalBestMove < *moveListIdx)
+    {   
+        DeleteMove(globalBestMove);
+        globalBestMove = moveListIdx;
+    }
+
+    while(moveListIdx != NULL && i < movesAtSearchDepth[this->searchDepth])
     {
         Util_Assert(moveListIdx->resultCB != NULL, "Move had null Chessboard!");
         
@@ -193,8 +198,8 @@ void ChessBoard::GenerateMoves(pieceType_e pt)
         i++;
     }
 
-    // At this point, the DFS for this board is complete
-
+    // Board is not needed
+    delete this;
 }
 
 /**
@@ -869,7 +874,7 @@ void ChessBoard::BuildMove(pieceType_e pt, uint64_t startIdx, uint64_t endIdx, m
     // Denote what type of move this is
     newMove->moveVal = moveVal;
     
-    // Generate the resultant board -- value will be calculated
+    // Generate the resultant board -- value will be calculated and applied to move
     this->SpawnNextChessBoard(newMove);
 
     // Add this move to the list of possible moves at this board position
@@ -937,10 +942,40 @@ void ChessBoard::AddMoveToMoveList(ChessBoard *cb, moveType_t *moveToAdd)
     }
 }
 
-int64_t ChessBoard::EvaluateCurrentBoardValue(ChessBoard *cb)
+void ChessBoard::EvaluateCurrentBoardValue(ChessBoard *cb)
 {
-    //@todo
-    return 0;
+    uint64_t idx, pieces;
+    Util_Assert(cb != NULL, "NULL Chessboard provided to evaluation function");
+
+
+    for(idx = 0; idx < NUM_PIECE_TYPES; ++idx)
+    {
+        // @todo: deal with lategame kings
+        if((pieceType_e) idx == WHITE_KING || (pieceType_e) idx == BLACK_KING)
+        {
+            continue;
+        }
+
+        // Essentially our piece value table must be mirrored for black, so we handle
+        // that here
+        pieces = cb->pieces[idx];
+        if(idx <= NUM_PIECE_TYPES / 2 - 1)
+        {
+            while(pieces != 0)
+            {
+                cb->value += GetPositionValueFromTable(idx & 6, __builtin_clz(pieces));
+                pieces ^= __builtin_clz(pieces);
+            }
+        }
+        else
+        {
+            while(pieces != 0)
+            {
+                cb->value -= GetPositionValueFromTable(idx & 6, __builtin_ctz(pieces));
+                pieces ^= __builtin_ctz(pieces);
+            }
+        }
+    }
 }
 
 
@@ -949,9 +984,11 @@ void ChessBoard::SpawnNextChessBoard(moveType_t *moveToExecute)
     // @todo: Write this function
     Util_Assert(moveToExecute != NULL, "Move provided was NULL");
 
-    ChessBoard *cb = new ChessBoard(this->pieces, this->occupied, this->numMovesAtThisDepth - 10, moveToExecute);
+    ChessBoard *cb = new ChessBoard(this->pieces, this->occupied, this->searchDepth++, moveToExecute);
     Util_Assert(cb != NULL, "Failed to allocate new chessboard");
 
+    moveToExecute->resultCB = cb;
+    moveToExecute->resultValue = cb->value;
 }
 
 /**
@@ -1006,7 +1043,7 @@ void ChessBoard::SpawnNextChessBoard(moveType_t *moveToExecute)
  * 
  *  Let's ballpark this to 5 move future search to start:
  * 
- *      |M(i)|   = ||
+ *      |M(i)|   = 40
  *      |M(i+1)| = 30
  *      |M(i+2)| = 20
  *      |M(i+3)| = 10
