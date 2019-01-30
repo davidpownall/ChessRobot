@@ -147,59 +147,72 @@ void ChessBoard::GenerateMoves(pieceType_e pt)
     // forward at this depth. It almost certainly better to free up as much
     // in-use memory as possible prior to executing the next level of our DFS
 
-    moveListIdx = this->movesToEvaluateAtThisDepth;
-    while(moveListIdx != NULL && i < movesAtSearchDepth[this->searchDepth])
+    // If we have any illegal moves at the start, eliminate them
+    moveListTemp = this->movesToEvaluateAtThisDepth;
+    while(moveListTemp != NULL && !moveListTemp->legalMove)
     {
-        if(i > 0)
+        moveListTemp = this->movesToEvaluateAtThisDepth->adjMove;
+        DeleteMove(this->movesToEvaluateAtThisDepth);
+        this->movesToEvaluateAtThisDepth = moveListTemp;
+    }
+    // Our firstMove is now confirmed legal, if not NULL
+    if(moveListTemp != NULL)
+    {
+        moveListIdx = moveListTemp->adjMove;
+        while(moveListIdx != NULL && i < movesAtSearchDepth[this->searchDepth])
         {
-            moveListTemp = moveListIdx;
+            // Illegal move detected -> we put ourself in checkmate
+            if(!moveListIdx->legalMove)
+            {
+                moveListTemp->adjMove = moveListIdx->adjMove;
+                DeleteMove(moveListIdx);
+                // Advance two spaces if we need to pull a move, but do not count against search depth limit
+                moveListIdx = moveListTemp->adjMove->adjMove;
+            }
+            else
+            {
+                moveListIdx = moveListIdx->adjMove;
+                i++;
+            }
         }
 
-        if(i ==  movesAtSearchDepth[this->searchDepth] - 1)
+        moveListTemp->adjMove = NULL;
+
+        // We know we have moves to delete if this is true
+        if(moveListIdx != NULL && i == movesAtSearchDepth[this->searchDepth])
         {
-            moveListTemp = moveListIdx;
+            // So delete the moves
+            while(moveListIdx != NULL){
+
+                moveListTemp = moveListIdx->adjMove;
+                ChessBoard::DeleteMove(moveListIdx);
+                moveListIdx = moveListTemp;
+            }
         }
 
-        moveListIdx = moveListIdx->adjMove;
-        i++;
+        moveListIdx = this->movesToEvaluateAtThisDepth;
 
-    }
-
-    moveListTemp->adjMove = NULL;
-
-    // We know we have moves to delete if this is true
-    if(moveListIdx != NULL && i == movesAtSearchDepth[this->searchDepth])
-    {
-        // So delete the moves
-        while(moveListIdx != NULL){
-
-            moveListTemp = moveListIdx->adjMove;
-            ChessBoard::DeleteMove(moveListIdx);
-            moveListIdx = moveListTemp;
+        // We are the end of our DFS and we have found a new best value
+        if(movesAtSearchDepth[this->searchDepth] == 1 && *globalBestMove < *moveListIdx)
+        {   
+            DeleteMove(globalBestMove);
+            globalBestMove = moveListIdx;
         }
-    }
 
-    moveListIdx = this->movesToEvaluateAtThisDepth;
-
-    // We are the end of our DFS and we have found a new best value
-    if(movesAtSearchDepth[this->searchDepth] == 1 && *globalBestMove < *moveListIdx)
-    {   
-        DeleteMove(globalBestMove);
-        globalBestMove = moveListIdx;
-    }
-
-    while(moveListIdx != NULL && i < movesAtSearchDepth[this->searchDepth])
-    {
-        Util_Assert(moveListIdx->resultCB != NULL, "Move had null Chessboard!");
-        
-        // This will create all moves for the next chessboard
-        moveListIdx->resultCB->GenerateMoves(nextPt);
-        moveListIdx = moveListIdx->adjMove;
-        i++;
+        while(moveListIdx != NULL && i < movesAtSearchDepth[this->searchDepth])
+        {
+            Util_Assert(moveListIdx->resultCB != NULL, "Move had null Chessboard!");
+            
+            // This will create all moves for the next chessboard
+            moveListIdx->resultCB->GenerateMoves(nextPt);
+            moveListIdx = moveListIdx->adjMove;
+            i++;
+        }
     }
 
     // Board is not needed
-    delete this;
+    //Add board to the deletion list
+    //delete this;
 }
 
 /**
@@ -804,7 +817,11 @@ void ChessBoard::GenerateKingMoves(pieceType_e pt)
     uint64_t king = this->pieces[pt], temp;
     (pt < (NUM_PIECE_TYPES/2)) ? enemyPieces = BLACK_PIECES : enemyPieces = WHITE_PIECES;
 
-    // Generate moves
+    // This is where we get slightly tricky. The king cannot move into a space under threat
+    // What this implies is that we need to know every single space which is under threat
+    // by the enemy. This includes spaces we can move into freely, as well as captures.
+    // Therefore, we need to generate a list of squares under threat at any time, regardless
+    // of what piece type has done this.    
 
     // Iterate through coverage list to check if that square is under threat
 
@@ -831,12 +848,14 @@ moveValidity_e ChessBoard::CheckSpaceForMoveOrAttack(uint64_t idxToEval, pieceTy
     return MOVE_INVALID;
 }
 
+
 /**
  * Generates a move given the piece type, the start index, and the end index
  * 
- * @param pt:       The piece you are moving
- * @param startIdx: The start index of the piece you are moving
- * @param endIdx:   Where your piece is going to go
+ * @param pt:           The piece you are moving
+ * @param startIdx:     The start index of the piece you are moving
+ * @param endIdx:       Where your piece is going to go
+ * @param moveVal:      The type of move you are executing
  * 
  * @note:   Assumption at this point is that the move is valid within the 
  *          the rules of chess
@@ -845,6 +864,7 @@ void ChessBoard::BuildMove(pieceType_e pt, uint64_t startIdx, uint64_t endIdx, m
 {
 
     moveType_t *newMove;
+    bool legalMove = true;
 
     if(moveVal == MOVE_INVALID)
     {
@@ -856,6 +876,17 @@ void ChessBoard::BuildMove(pieceType_e pt, uint64_t startIdx, uint64_t endIdx, m
     Util_Assert(startIdx < NUM_BOARD_INDICIES && endIdx < NUM_BOARD_INDICIES
         && startIdx != endIdx, "Invalid indicies provided for move");
 
+    // Now for an interesting quirk. If we have detected that we can actually directly attack
+    // the king of our enemy, we actually know that the previous move that got us here is
+    // actually illegal under the rules of chess, and MUST be discounted. We can actually
+    // check for this rather simply. They key is that checkmate must be detected from 
+    // our turn, not the response move
+
+    if((pt < NUM_PIECE_TYPES/2 && (1 << endIdx) & this->pieces[BLACK_KING] != 0)
+        || (pt >= NUM_PIECE_TYPES/2 && (1 << endIdx) & this->pieces[WHITE_KING] != 0))
+    {
+        legalMove = false;
+    }
 
     newMove = new moveType_t;
     Util_Assert(newMove != NULL, "Failed to allocate memory for new move!");
@@ -873,12 +904,22 @@ void ChessBoard::BuildMove(pieceType_e pt, uint64_t startIdx, uint64_t endIdx, m
 
     // Denote what type of move this is
     newMove->moveVal = moveVal;
-    
-    // Generate the resultant board -- value will be calculated and applied to move
-    this->SpawnNextChessBoard(newMove);
 
-    // Add this move to the list of possible moves at this board position
-    ChessBoard::AddMoveToMoveList(this, newMove);
+    newMove->legalMove = legalMove;
+
+    if(legalMove)
+    {
+        // Generate the resultant board -- value will be calculated and applied to move
+        this->SpawnNextChessBoard(newMove);
+
+        // Add this move to the list of possible moves at this board position
+        ChessBoard::AddMoveToMoveList(this, newMove);
+    }
+    else
+    {
+        // If this move was illegal, then the last move HAS to be illegal
+        this->lastMove->legalMove = false;
+    }
 }
 
 /**

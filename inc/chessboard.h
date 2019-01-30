@@ -86,6 +86,9 @@ typedef struct moveType_s
     // What piece we are moving
     pieceType_e pt;
 
+    // Is this move legal
+    bool legalMove;
+
     // How we can compare two moves
     bool operator<(const struct moveType_s rhs) const
     {
@@ -117,6 +120,8 @@ private:
     //      Positive = white's advantage
     //      Negative = black's advantage
     int64_t value;
+
+    uint64_t threatMap;
 
     uint64_t searchDepth;
     moveType_t *movesToEvaluateAtThisDepth;
