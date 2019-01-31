@@ -215,6 +215,56 @@ void ChessBoard::GenerateMoves(pieceType_e pt)
     //delete this;
 }
 
+int64_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize)
+{
+    int64_t score, savedScore;
+    moveType_t *moveToEvaluate;
+
+    if(depth == 0)
+    {
+        return -EvaluateCurrentBoardValue(this);
+    }
+
+    moveToEvaluate = this->movesToEvaluateAtThisDepth;
+    if(playerToMaximize)
+    {
+        score = -1000000000000000;
+        while(moveToEvaluate != NULL)
+        {
+            this->ApplyMoveToBoard(moveToEvaluate);
+            savedScore = score;
+            score = std::max(score, this->GetBestMove(depth - 1, !playerToMaximize));
+            if(depth == SEARCH_DEPTH)
+            {
+                if(score > savedScore)
+                {
+                    globalBestMove = moveToEvaluate;
+                }
+            }
+            //this->undoMove();
+        }
+    }
+    else
+    {
+        score = 1000000000000000;
+        while(moveToEvaluate != NULL)
+        {
+            this->ApplyMoveToBoard(moveToEvaluate);
+            savedScore = score;
+            score = std::min(score, this->GetBestMove(depth - 1, !playerToMaximize));
+            if(depth == SEARCH_DEPTH)
+            {
+                if(score < savedScore)
+                {
+                    globalBestMove = moveToEvaluate;
+                }
+            }
+            //this->undoMove();
+        }
+    }
+}
+
+
 /**
  * Runs through the deletion procedure for a given move
  * 
@@ -983,11 +1033,11 @@ void ChessBoard::AddMoveToMoveList(ChessBoard *cb, moveType_t *moveToAdd)
     }
 }
 
-void ChessBoard::EvaluateCurrentBoardValue(ChessBoard *cb)
+int64_t ChessBoard::EvaluateCurrentBoardValue(ChessBoard *cb)
 {
     uint64_t idx, pieces;
+    int64_t value = 0;
     Util_Assert(cb != NULL, "NULL Chessboard provided to evaluation function");
-
 
     for(idx = 0; idx < NUM_PIECE_TYPES; ++idx)
     {
@@ -1004,7 +1054,7 @@ void ChessBoard::EvaluateCurrentBoardValue(ChessBoard *cb)
         {
             while(pieces != 0)
             {
-                cb->value += GetPositionValueFromTable(idx & 6, __builtin_clz(pieces));
+                value += GetPositionValueFromTable(idx & 6, __builtin_clz(pieces));
                 pieces ^= __builtin_clz(pieces);
             }
         }
@@ -1012,11 +1062,12 @@ void ChessBoard::EvaluateCurrentBoardValue(ChessBoard *cb)
         {
             while(pieces != 0)
             {
-                cb->value -= GetPositionValueFromTable(idx & 6, __builtin_ctz(pieces));
+                value -= GetPositionValueFromTable(idx & 6, __builtin_ctz(pieces));
                 pieces ^= __builtin_ctz(pieces);
             }
         }
     }
+    return value;
 }
 
 

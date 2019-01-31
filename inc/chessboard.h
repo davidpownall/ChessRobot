@@ -151,8 +151,9 @@ public:
     uint64_t GetBlackKing() const { return pieces[BLACK_KING]; };
 
     int64_t GetCurrentValue() const {return value;}
-    static void EvaluateCurrentBoardValue(ChessBoard *cb);
+    static int64_t EvaluateCurrentBoardValue(ChessBoard *cb);
 
+    int64_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize);
     void GenerateMoves(pieceType_e pt);
     moveType_t *GetNextMove(pieceType_e pt);
     void BuildMove(pieceType_e pt, uint64_t startIdx, uint64_t endIdx, moveValidity_e moveVal);
