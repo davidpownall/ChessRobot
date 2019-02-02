@@ -8,7 +8,7 @@ static char knightChar = 'N';
 static char queenChar  = 'Q';
 static char kingChar   = 'K';
 
-char Util_ConvertPieceTypeToChar(pieceType_e pt)
+char Util_ConvertPieceTypeToChar(uint8_t pt)
 {
     // @todo Convert this to a macro
     switch(pt)

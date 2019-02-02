@@ -29,78 +29,40 @@
 #define MAX_EVAL_MOVES      40
 #define NUM_BOARD_INDICIES  64
 
-class ChessBoard;
+#define MOVE_INVALID 0x0
+#define MOVE_VALID 0x1
+#define MOVE_VALID_ATTACK 0x2
 
-/* Enum defining results of potential move evaluation */
-enum moveValidity_e
-{
-    MOVE_INVALID,
-    MOVE_VALID,
-    MOVE_VALID_ATTACK
-};
+#define WHITE_PAWN 0x0
+#define WHITE_ROOK 0x1
+#define WHITE_BISHOP 0x2
+#define WHITE_KNIGHT 0x3
+#define WHITE_QUEEN 0x4
+#define WHITE_KING 0x5
+#define BLACK_PAWN 0x6
+#define BLACK_ROOK 0x7
+#define BLACK_BISHOP 0x8
+#define BLACK_KNIGHT 0x9
+#define BLACK_QUEEN 0x10
+#define BLACK_KING 0x11
+#define WHITE_PIECES 0x12
+#define BLACK_PIECES 0x13
 
-/* Enum definining piece index */
-enum pieceType_e
-{
-    WHITE_PAWN,
-    WHITE_ROOK,
-    WHITE_BISHOP,
-    WHITE_KNIGHT,
-    WHITE_QUEEN,
-    WHITE_KING,
-    BLACK_PAWN,
-    BLACK_ROOK,
-    BLACK_BISHOP,
-    BLACK_KNIGHT,
-    BLACK_QUEEN,
-    BLACK_KING,
-    WHITE_PIECES,
-    BLACK_PIECES
-};
-
+/**
+ * The structure which defines a given move applied to a chessboard. In order to
+ * maximize the performance of the engine, 8 bytes is the hard cap of structure size.
+ */
 typedef struct moveType_s
 {
+    uint32_t startIdx: 6; // Start index of our move
+    uint32_t endIdx: 6; // End index of our move
+    uint32_t pt: 4; // What piece type we are moving
+    uint32_t moveVal: 2; // What type of move this is
+    uint32_t legalMove; // Is this move actually legal
+    uint32_t reserved: 13;
 
-    // The ChessBoard where this move was made
-    ChessBoard *currentCB;
-
-    // The ChessBoard resulting from this move 
-    ChessBoard *resultCB;
-
-    // The value of the board resulting from the move
-    uint64_t resultValue;
-
-    // The actual chars containing the chess move
-    char moveString[4];
-
-    uint64_t startIdx;
-    uint64_t endIdx;
-
-    // Forms the move list for currentCB. Enforce that the list is always
-    // in descending order based on the value of the output board
+    // Forms the move list for chessbord state
     struct moveType_s *adjMove;
-
-    // What type of move is this?
-    moveValidity_e moveVal;
-
-    // What piece we are moving
-    pieceType_e pt;
-
-    // Is this move legal
-    bool legalMove;
-
-    // How we can compare two moves
-    bool operator<(const struct moveType_s rhs) const
-    {
-        return resultValue < rhs.resultValue;
-    }
-
-    bool operator<=(const struct moveType_s rhs) const
-    {
-        return resultValue <= rhs.resultValue;
-    }
-
-    // @todo: Add more operators if necessary
 
 } moveType_t;
 
@@ -124,15 +86,15 @@ private:
     uint64_t threatMap;
 
     uint64_t searchDepth;
-    moveType_t *movesToEvaluateAtThisDepth;
-    moveType_t *lastMove;
+    //moveType_t *movesToEvaluateAtThisDepth;
+    //moveType_t *lastMove;
 
 public:
 
     ChessBoard(void);
     ChessBoard(uint64_t *pieces, uint64_t occupied, uint64_t searchDepth, moveType_t *lastMove);
 
-    uint64_t GetPiece(pieceType_e pt) const { return pieces[pt]; };
+    uint64_t GetPiece(uint8_t pt) const { return pieces[pt]; };
     uint64_t GetWhitePieces() const { return pieces[WHITE_PIECES]; };
     uint64_t GetBlackPieces() const { return pieces[BLACK_PIECES]; };
 
@@ -153,25 +115,23 @@ public:
     int64_t GetCurrentValue() const {return value;}
     static int64_t EvaluateCurrentBoardValue(ChessBoard *cb);
 
-    int64_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize);
-    void GenerateMoves(pieceType_e pt);
-    moveType_t *GetNextMove(pieceType_e pt);
-    void BuildMove(pieceType_e pt, uint64_t startIdx, uint64_t endIdx, moveValidity_e moveVal);
+    int64_t GetBestMove(uint64_t depth, bool playerToMaximize, moveType_t *movesToEvaluateAtThisDepth);
+    moveType_t *GenerateMoves(uint8_t pt);
+    moveType_t *GetNextMove(uint8_t pt);
+    void BuildMove(uint8_t pt, uint8_t startIdx, uint8_t endIdx, uint8_t moveVal, moveType_t **moveList);
     uint64_t ApplyMoveToBoard(moveType_t *moveToApply);
 
     static void AddMoveToMoveList(ChessBoard *cb, moveType_t *moveToAdd);
     static void DeleteMove(moveType_t *moveToDelete);
 
-    moveValidity_e CheckSpaceForMoveOrAttack(uint64_t idxToEval, pieceType_e enemyPieces);
+    uint8_t CheckSpaceForMoveOrAttack(uint64_t idxToEval, uint8_t enemyPieces);
 
-    void GeneratePawnMoves(pieceType_e pt);
-    void GenerateRookMoves(pieceType_e pt);
-    void GenerateBishopMoves(pieceType_e pt);
-    void GenerateKnightMoves(pieceType_e pt);
-    void GenerateQueenMoves(pieceType_e pt);
-    void GenerateKingMoves(pieceType_e pt);
-
-    void SpawnNextChessBoard(moveType_t *moveToExecute);
+    void GeneratePawnMoves(uint8_t pt, moveType_t **moveList);
+    void GenerateRookMoves(uint8_t pt, moveType_t **moveList);
+    void GenerateBishopMoves(uint8_t pt, moveType_t **moveList);
+    void GenerateKnightMoves(uint8_t pt, moveType_t **moveList);
+    void GenerateQueenMoves(uint8_t pt, moveType_t **moveList);
+    void GenerateKingMoves(uint8_t pt, moveType_t **moveList);
 
 };
 

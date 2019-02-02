@@ -85,17 +85,17 @@ ChessBoard::ChessBoard(uint64_t *pieces, uint64_t occupied, uint64_t searchDepth
     }
 
     // Copy the board over
-    memcpy((void *) this->pieces, (void*) pieces, (NUM_PIECE_TYPES + 2)*sizeof(uint64_t));
+    //memcpy((void *) this->pieces, (void*) pieces, (NUM_PIECE_TYPES + 2)*sizeof(uint64_t));
 
     // @todo: Figure out a way to determine if an occupied bitboard is valid
-    this->occupied = occupied;
-    this->empty = ~occupied;
+    //this->occupied = occupied;
+    //this->empty = ~occupied;
 
-    this->searchDepth = searchDepth;
+    //this->searchDepth = searchDepth;
 
-    this->lastMove = lastMove;
+    //this->lastMove = lastMove;
     //@todo: Make function static
-    this->ApplyMoveToBoard(this->lastMove);
+    //this->ApplyMoveToBoard(this->lastMove);
 
     ChessBoard::EvaluateCurrentBoardValue(this);
 
@@ -105,11 +105,13 @@ ChessBoard::ChessBoard(uint64_t *pieces, uint64_t occupied, uint64_t searchDepth
  * Generates the valid moves for a given chessboard state and color
  * 
  * @param pt:   The color you wish to generate possible moves for
+ *
+ * @return      The list of moves available at this location
  */
-void ChessBoard::GenerateMoves(pieceType_e pt)
+moveType_t *ChessBoard::GenerateMoves(uint8_t pt)
 {
-    moveType_t *moveListIdx, *moveListTemp;
-    pieceType_e nextPt;
+    moveType_t *moveList;
+    uint8_t nextPt;
     uint64_t i = 1;
 
     if(pt == WHITE_PIECES)
@@ -117,29 +119,31 @@ void ChessBoard::GenerateMoves(pieceType_e pt)
         nextPt = BLACK_PIECES;
 
         // Generate possible plays for white
-        GeneratePawnMoves(WHITE_PAWN);
-        GenerateRookMoves(WHITE_ROOK);
-        GenerateBishopMoves(WHITE_BISHOP);
-        GenerateKnightMoves(WHITE_KNIGHT);
-        GenerateQueenMoves(WHITE_QUEEN);
-        GenerateKingMoves(WHITE_KING);
+        GeneratePawnMoves(WHITE_PAWN, &moveList);
+        GenerateRookMoves(WHITE_ROOK, &moveList);
+        GenerateBishopMoves(WHITE_BISHOP, &moveList);
+        GenerateKnightMoves(WHITE_KNIGHT, &moveList);
+        GenerateQueenMoves(WHITE_QUEEN, &moveList);
+        GenerateKingMoves(WHITE_KING, &moveList);
     }
     else if (pt == BLACK_PIECES)
     {
         nextPt = WHITE_PIECES;
 
         // Generate possible plays for black
-        GeneratePawnMoves(BLACK_PAWN);
-        GenerateRookMoves(BLACK_ROOK);
-        GenerateBishopMoves(BLACK_BISHOP);
-        GenerateKnightMoves(BLACK_KNIGHT);
-        GenerateQueenMoves(BLACK_QUEEN);
-        GenerateKingMoves(BLACK_KING);
+        GeneratePawnMoves(BLACK_PAWN, &moveList);
+        GenerateRookMoves(BLACK_ROOK, &moveList);
+        GenerateBishopMoves(BLACK_BISHOP, &moveList);
+        GenerateKnightMoves(BLACK_KNIGHT, &moveList);
+        GenerateQueenMoves(BLACK_QUEEN, &moveList);
+        GenerateKingMoves(BLACK_KING, &moveList);
     }
     else
     {
         Util_Assert(0, "Error in input piece type");
     }
+
+    return moveList;
 
     // So now we have all possible moves. We know that our moves are stored
     // as a linked list with the best moves already at the front. We want
@@ -148,7 +152,7 @@ void ChessBoard::GenerateMoves(pieceType_e pt)
     // in-use memory as possible prior to executing the next level of our DFS
 
     // If we have any illegal moves at the start, eliminate them
-    moveListTemp = this->movesToEvaluateAtThisDepth;
+/*     moveListTemp = this->movesToEvaluateAtThisDepth;
     while(moveListTemp != NULL && !moveListTemp->legalMove)
     {
         moveListTemp = this->movesToEvaluateAtThisDepth->adjMove;
@@ -208,38 +212,49 @@ void ChessBoard::GenerateMoves(pieceType_e pt)
             moveListIdx = moveListIdx->adjMove;
             i++;
         }
-    }
+    } */
 
     // Board is not needed
     //Add board to the deletion list
     //delete this;
 }
 
-int64_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize)
+/**
+ * Determines the next best move via a minimax searc algorithm.
+ * 
+ * @param depth             The search depth to look
+ * @param playerToMaximize  If we are attempting to maximize or minimize score
+ *                          for this search depth
+ * 
+ * @return                  The score associated with the best move for this search
+ *                          depth
+ * 
+ * @note                    At search depth 0, the move with the best score will be 
+ *                          placed in a variable of the board globalBestMove;
+ */
+int64_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize, moveType_t *movesToEvaluateAtThisDepth)
 {
     int64_t score, savedScore;
-    moveType_t *moveToEvaluate;
+    moveType_t *moveToEvaluate, *movesToEvaluateAtNextDepth;
 
     if(depth == 0)
     {
         return -EvaluateCurrentBoardValue(this);
     }
 
-    moveToEvaluate = this->movesToEvaluateAtThisDepth;
+    moveToEvaluate = movesToEvaluateAtThisDepth;
     if(playerToMaximize)
     {
         score = -1000000000000000;
         while(moveToEvaluate != NULL)
         {
             this->ApplyMoveToBoard(moveToEvaluate);
+            movesToEvaluateAtNextDepth = this->GenerateMoves(WHITE_PIECES);
             savedScore = score;
-            score = std::max(score, this->GetBestMove(depth - 1, !playerToMaximize));
+            score = std::max(score, this->GetBestMove(depth - 1, !playerToMaximize, movesToEvaluateAtNextDepth));
             if(depth == SEARCH_DEPTH)
             {
-                if(score > savedScore)
-                {
-                    globalBestMove = moveToEvaluate;
-                }
+                globalBestMove = moveToEvaluate;
             }
             //this->undoMove();
         }
@@ -250,18 +265,17 @@ int64_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize)
         while(moveToEvaluate != NULL)
         {
             this->ApplyMoveToBoard(moveToEvaluate);
+            movesToEvaluateAtNextDepth = this->GenerateMoves(BLACK_PIECES);
             savedScore = score;
-            score = std::min(score, this->GetBestMove(depth - 1, !playerToMaximize));
-            if(depth == SEARCH_DEPTH)
+            score = std::min(score, this->GetBestMove(depth - 1, !playerToMaximize, movesToEvaluateAtNextDepth));
+            if(depth == SEARCH_DEPTH && score < savedScore)
             {
-                if(score < savedScore)
-                {
-                    globalBestMove = moveToEvaluate;
-                }
+                globalBestMove = moveToEvaluate;
             }
             //this->undoMove();
         }
     }
+    return score;
 }
 
 
@@ -356,7 +370,7 @@ uint64_t ChessBoard::ApplyMoveToBoard(moveType_t *moveToApply)
     this->pieces[enemyPieces] &= ~(1 << moveToApply->endIdx);
     for(uint64_t i = (uint64_t) enemyPieces; i < NUM_PIECE_TYPES/2; ++i)
     {
-        this->pieces[(pieceType_e) i] &= ~(1 << moveToApply->endIdx);
+        this->pieces[(uint8_t) i] &= ~(1 << moveToApply->endIdx);
     }
 
     // Ancillary bitboards also need to be updated
@@ -382,7 +396,7 @@ uint64_t ChessBoard::ApplyMoveToBoard(moveType_t *moveToApply)
  * 4) Go to next candidate
  **/
 
-void ChessBoard::GeneratePawnMoves(pieceType_e pt)
+void ChessBoard::GeneratePawnMoves(uint8_t pt, moveType_t **moveList)
 {
     // Pawns can move forward, or diagonally to strike, or en passant (tricky)
     uint64_t pawn, pawns = this->pieces[pt];   
@@ -396,7 +410,7 @@ void ChessBoard::GeneratePawnMoves(pieceType_e pt)
 
     Util_Assert(pt == WHITE_PAWN || pt == BLACK_PAWN, "Pawn move passed bad piecetype");
 
-    lastMove = this->lastMove;
+    //lastMove = GetLastMove();
 
     if(pt == WHITE_PAWN)
     {
@@ -418,25 +432,25 @@ void ChessBoard::GeneratePawnMoves(pieceType_e pt)
                 && (this->pieces[WHITE_PIECES] & (pawn << 8)) == 0
                 && (this->pieces[BLACK_PIECES] & (pawn << 8)) == 0)
             {
-                this->BuildMove(WHITE_PAWN, __builtin_clz(pawn), i + 8, MOVE_VALID);
+                this->BuildMove(WHITE_PAWN, __builtin_clz(pawn), i + 8, MOVE_VALID, moveList);
                 
                 if( i < 16 
                     && (this->pieces[WHITE_PIECES] & (pawn << 8)) == 0
                     && (this->pieces[BLACK_PIECES] & (pawn << 8)) == 0)
                 {
-                    this->BuildMove(WHITE_PAWN, __builtin_clz(pawn), i + 16, MOVE_VALID);
+                    this->BuildMove(WHITE_PAWN, __builtin_clz(pawn), i + 16, MOVE_VALID, moveList);
                 }
             } 
 
             // Move left-diagonal to attack
             if( (i % 8 != 0) && (this->pieces[BLACK_PIECES] & (pawn << 7)) == 1)
             {
-                this->BuildMove(WHITE_PAWN, __builtin_clz(pawn), i + 7, MOVE_VALID);
+                this->BuildMove(WHITE_PAWN, __builtin_clz(pawn), i + 7, MOVE_VALID, moveList);
             }
 
             if( (i % 8 != 7) && (this->pieces[BLACK_PIECES] & (pawn << 9)) == 1)
             {
-                this->BuildMove(WHITE_PAWN, __builtin_clz(pawn), i + 9, MOVE_VALID);
+                this->BuildMove(WHITE_PAWN, __builtin_clz(pawn), i + 9, MOVE_VALID, moveList), moveList;
             }
 
             // En passant check
@@ -455,12 +469,12 @@ void ChessBoard::GeneratePawnMoves(pieceType_e pt)
                 // Can we look to the left and did the pawn land there
                 if((i % 8 > 0) && ((i - lastMove->endIdx) == 1))
                 {
-                    this->BuildMove(WHITE_PAWN, __builtin_clz(pawn), i + 7, MOVE_VALID_ATTACK);
+                    this->BuildMove(WHITE_PAWN, __builtin_clz(pawn), i + 7, MOVE_VALID_ATTACK, moveList);
                 }
                 // Can we look to the right and did the pawn land there
                 if((i % 8 < 7) && ((lastMove->endIdx - i) == 1))
                 {
-                    this->BuildMove(WHITE_PAWN, __builtin_clz(pawn), i + 9, MOVE_VALID_ATTACK);
+                    this->BuildMove(WHITE_PAWN, __builtin_clz(pawn), i + 9, MOVE_VALID_ATTACK, moveList);
                 }          
             }        
         }
@@ -485,25 +499,25 @@ void ChessBoard::GeneratePawnMoves(pieceType_e pt)
                 && (this->pieces[WHITE_PIECES] & (pawn >> 8)) == 0
                 && (this->pieces[BLACK_PIECES] & (pawn >> 8)) == 0)
             {
-                this->BuildMove(BLACK_PAWN, __builtin_clz(pawn), i - 8, MOVE_VALID);
+                this->BuildMove(BLACK_PAWN, __builtin_clz(pawn), i - 8, MOVE_VALID, moveList);
                 
                 if( i >= 56 
                     && (this->pieces[WHITE_PIECES] & (pawn >> 8)) == 0
                     && (this->pieces[BLACK_PIECES] & (pawn >> 8)) == 0)
                 {
-                    this->BuildMove(BLACK_PAWN, __builtin_clz(pawn), i - 16, MOVE_VALID);
+                    this->BuildMove(BLACK_PAWN, __builtin_clz(pawn), i - 16, MOVE_VALID, moveList);
                 }
             } 
 
             // Move left-diagonal to attack
             if( (i % 8 != 7) && (this->pieces[BLACK_PIECES] & (pawn >> 9)) == 1)
             {
-                this->BuildMove(BLACK_PAWN, __builtin_clz(pawn), i - 9, MOVE_VALID_ATTACK);
+                this->BuildMove(BLACK_PAWN, __builtin_clz(pawn), i - 9, MOVE_VALID_ATTACK, moveList);
             }
 
             if( (i % 8 != 0) && (this->pieces[BLACK_PIECES] & (pawn >> 7)) == 1)
             {
-                this->BuildMove(BLACK_PAWN, __builtin_clz(pawn), i - 7, MOVE_VALID_ATTACK);
+                this->BuildMove(BLACK_PAWN, __builtin_clz(pawn), i - 7, MOVE_VALID_ATTACK, moveList);
             }
 
             // En passant check
@@ -522,23 +536,23 @@ void ChessBoard::GeneratePawnMoves(pieceType_e pt)
                 // Can we look to the left and did the pawn land there
                 if((i % 8 > 0) && ((i - lastMove->endIdx) == 1))
                 {
-                    this->BuildMove(BLACK_PAWN, __builtin_clz(pawn), i - 9, MOVE_VALID_ATTACK);
+                    this->BuildMove(BLACK_PAWN, __builtin_clz(pawn), i - 9, MOVE_VALID_ATTACK, moveList);
                 }
                 // Can we look to the right and did the pawn land there
                 if((i % 8 < 7) && ((lastMove->endIdx - i) == 1))
                 {
-                    this->BuildMove(BLACK_PAWN, __builtin_clz(pawn), i - 7, MOVE_VALID_ATTACK);
+                    this->BuildMove(BLACK_PAWN, __builtin_clz(pawn), i - 7, MOVE_VALID_ATTACK, moveList);
                 }          
             }
         }
     }   
 }
 
-void ChessBoard::GenerateRookMoves(pieceType_e pt)
+void ChessBoard::GenerateRookMoves(uint8_t pt, moveType_t **moveList)
 {
     // Rooks can move vertically and horizontally. Logic is mostly unified between color
-    moveValidity_e moveVal;
-    pieceType_e enemyPieces;
+    uint8_t moveVal;
+    uint8_t enemyPieces;
     uint64_t rooks = this->pieces[pt], temp, rookIdx;
     (pt < (NUM_PIECE_TYPES/2)) ? enemyPieces = BLACK_PIECES : enemyPieces = WHITE_PIECES;
 
@@ -610,7 +624,7 @@ void ChessBoard::GenerateRookMoves(pieceType_e pt)
 
             temp -= 8;
             moveVal = this->CheckSpaceForMoveOrAttack(temp, enemyPieces);
-            this->BuildMove(pt, rookIdx, temp, moveVal);
+            this->BuildMove(pt, rookIdx, temp, moveVal, moveList);
 
             // Generate move
             if(moveVal == MOVE_VALID_ATTACK)
@@ -631,7 +645,7 @@ void ChessBoard::GenerateRookMoves(pieceType_e pt)
 
             temp += 8;
             moveVal = this->CheckSpaceForMoveOrAttack(temp, enemyPieces);
-            this->BuildMove(pt, rookIdx, temp, moveVal);
+            this->BuildMove(pt, rookIdx, temp, moveVal, moveList);
 
             // Generate move
             if(moveVal == MOVE_VALID_ATTACK)
@@ -642,10 +656,10 @@ void ChessBoard::GenerateRookMoves(pieceType_e pt)
     }
 }
 
-void ChessBoard::GenerateBishopMoves(pieceType_e pt)
+void ChessBoard::GenerateBishopMoves(uint8_t pt, moveType_t **moveList)
 {
-    moveValidity_e moveVal;
-    pieceType_e enemyPieces;
+    uint8_t moveVal;
+    uint8_t enemyPieces;
     uint64_t bishops = this->pieces[pt], bishopIdx, bishop, temp;
     (pt < (NUM_PIECE_TYPES/2)) ? enemyPieces = BLACK_PIECES : enemyPieces = WHITE_PIECES;
 
@@ -673,7 +687,7 @@ void ChessBoard::GenerateBishopMoves(pieceType_e pt)
 
             temp -= 9;
             moveVal = this->CheckSpaceForMoveOrAttack(temp, enemyPieces);
-            this->BuildMove(pt, bishopIdx, temp, moveVal);
+            this->BuildMove(pt, bishopIdx, temp, moveVal, moveList);
 
             if(moveVal == MOVE_VALID_ATTACK)
             {
@@ -692,7 +706,7 @@ void ChessBoard::GenerateBishopMoves(pieceType_e pt)
 
             temp -= 7;
             moveVal = this->CheckSpaceForMoveOrAttack(temp, enemyPieces);
-            this->BuildMove(pt, bishopIdx, temp, moveVal);
+            this->BuildMove(pt, bishopIdx, temp, moveVal, moveList);
 
             if(moveVal == MOVE_VALID_ATTACK)
             {
@@ -711,7 +725,7 @@ void ChessBoard::GenerateBishopMoves(pieceType_e pt)
 
             temp += 7;
             moveVal = this->CheckSpaceForMoveOrAttack(temp, enemyPieces);
-            this->BuildMove(pt, bishopIdx, temp, moveVal);
+            this->BuildMove(pt, bishopIdx, temp, moveVal, moveList);
 
             if(moveVal == MOVE_VALID_ATTACK)
             {
@@ -730,7 +744,7 @@ void ChessBoard::GenerateBishopMoves(pieceType_e pt)
 
             temp += 9;
             moveVal = this->CheckSpaceForMoveOrAttack(temp, enemyPieces);
-            this->BuildMove(pt, bishopIdx, temp, moveVal);
+            this->BuildMove(pt, bishopIdx, temp, moveVal, moveList);
 
             if(moveVal == MOVE_VALID_ATTACK)
             {
@@ -747,7 +761,7 @@ void ChessBoard::GenerateBishopMoves(pieceType_e pt)
  * 
  * @requires    pt to be in {WHITE_KNIGHT, BLACK_KNIGHT}
  */
-void ChessBoard::GenerateKnightMoves(pieceType_e pt)
+void ChessBoard::GenerateKnightMoves(uint8_t pt, moveType_t **moveList)
 {
     // Knights can move two squares horizontally and one vertically, or
     // two squares vertically and one horizontally.
@@ -755,8 +769,8 @@ void ChessBoard::GenerateKnightMoves(pieceType_e pt)
     // 6 up, 10 up, 15 up, 17 up
     // 6 down, 10 down, 15 down, 17 down
 
-    moveValidity_e moveVal;
-    pieceType_e enemyPieces;
+    uint8_t moveVal;
+    uint8_t enemyPieces;
     uint64_t knights = this->pieces[pt], knightIdx, temp;
     (pt < (NUM_PIECE_TYPES/2)) ? enemyPieces = BLACK_PIECES : enemyPieces = WHITE_PIECES;
 
@@ -779,14 +793,14 @@ void ChessBoard::GenerateKnightMoves(pieceType_e pt)
             if(knightIdx + 15 % 8 < knightIdx % 8)
             {
                 moveVal = this->CheckSpaceForMoveOrAttack(knightIdx + 15, enemyPieces);
-                this->BuildMove(pt, knightIdx, knightIdx + 15, moveVal);
+                this->BuildMove(pt, knightIdx, knightIdx + 15, moveVal, moveList);
                 
             }
             // Can we move right
             if(knightIdx + 17 % 8 > knightIdx % 8)
             {
                 moveVal = this->CheckSpaceForMoveOrAttack(knightIdx + 17, enemyPieces);
-                this->BuildMove(pt, knightIdx, knightIdx + 17, moveVal);
+                this->BuildMove(pt, knightIdx, knightIdx + 17, moveVal, moveList);
             }
         }
 
@@ -797,13 +811,13 @@ void ChessBoard::GenerateKnightMoves(pieceType_e pt)
             if(knightIdx - 17 % 8 < knightIdx % 8)
             {
                 moveVal = this->CheckSpaceForMoveOrAttack(knightIdx - 17, enemyPieces);
-                this->BuildMove(pt, knightIdx, knightIdx - 17, moveVal);
+                this->BuildMove(pt, knightIdx, knightIdx - 17, moveVal, moveList);
             }
             // Can we move right
             if(knightIdx + 10 % 8 > knightIdx % 8)
             {
                 moveVal = this->CheckSpaceForMoveOrAttack(knightIdx - 15, enemyPieces);
-                this->BuildMove(pt, knightIdx, knightIdx - 15, moveVal);
+                this->BuildMove(pt, knightIdx, knightIdx - 15, moveVal, moveList);
             }            
         }
 
@@ -814,13 +828,13 @@ void ChessBoard::GenerateKnightMoves(pieceType_e pt)
             if(knightIdx + 6 < NUM_BOARD_INDICIES)
             {
                 moveVal = this->CheckSpaceForMoveOrAttack(knightIdx + 6, enemyPieces);
-                this->BuildMove(pt, knightIdx, knightIdx + 6, moveVal);
+                this->BuildMove(pt, knightIdx, knightIdx + 6, moveVal, moveList);
             }
             // Can we move down
             if(knightIdx - 10 > 0)
             {
                 moveVal = this->CheckSpaceForMoveOrAttack(knightIdx - 10, enemyPieces);
-                this->BuildMove(pt, knightIdx, knightIdx - 10, moveVal);
+                this->BuildMove(pt, knightIdx, knightIdx - 10, moveVal, moveList);
             }
         }
 
@@ -831,13 +845,13 @@ void ChessBoard::GenerateKnightMoves(pieceType_e pt)
             if(knightIdx + 10 < NUM_BOARD_INDICIES)
             {
                 moveVal = this->CheckSpaceForMoveOrAttack(knightIdx + 10, enemyPieces);
-                this->BuildMove(pt, knightIdx, knightIdx + 10, moveVal);
+                this->BuildMove(pt, knightIdx, knightIdx + 10, moveVal, moveList);
             }
             // Can we move down
             if(knightIdx - 6 > 0)
             {
                 moveVal = this->CheckSpaceForMoveOrAttack(knightIdx - 6, enemyPieces);
-                this->BuildMove(pt, knightIdx, knightIdx - 6, moveVal);           
+                this->BuildMove(pt, knightIdx, knightIdx - 6, moveVal, moveList);           
             }
         }
     }
@@ -848,22 +862,22 @@ void ChessBoard::GenerateKnightMoves(pieceType_e pt)
  * 
  * @param pt:   The type of queen to generate the move for
  */
-void ChessBoard::GenerateQueenMoves(pieceType_e pt)
+void ChessBoard::GenerateQueenMoves(uint8_t pt, moveType_t **moveList)
 {
     Util_Assert(pt == WHITE_QUEEN || pt == BLACK_QUEEN, "Queen type provided invalid");
 
     // The queen can make any move that a rook or bishop can, will actually
     // capture all possible moves if we have multiple queens
-    this->GenerateBishopMoves(pt);
-    this->GenerateRookMoves(pt);
+    this->GenerateBishopMoves(pt, moveList);
+    this->GenerateRookMoves(pt, moveList);
 }
 
-void ChessBoard::GenerateKingMoves(pieceType_e pt)
+void ChessBoard::GenerateKingMoves(uint8_t pt, moveType_t **moveList)
 {
     // While the king has basic movement, it cannot put itself into check,
     // we need an additional guard in place for that. Also castling behavior.
 
-    pieceType_e enemyPieces;
+    uint8_t enemyPieces;
     uint64_t king = this->pieces[pt], temp;
     (pt < (NUM_PIECE_TYPES/2)) ? enemyPieces = BLACK_PIECES : enemyPieces = WHITE_PIECES;
 
@@ -885,7 +899,7 @@ void ChessBoard::GenerateKingMoves(pieceType_e pt)
  * 
  * @return  The validity of the selected move
  */
-moveValidity_e ChessBoard::CheckSpaceForMoveOrAttack(uint64_t idxToEval, pieceType_e enemyPieces)
+uint8_t ChessBoard::CheckSpaceForMoveOrAttack(uint64_t idxToEval, uint8_t enemyPieces)
 {
     if((1 << idxToEval) & this->occupied == 0)
     {
@@ -906,14 +920,15 @@ moveValidity_e ChessBoard::CheckSpaceForMoveOrAttack(uint64_t idxToEval, pieceTy
  * @param startIdx:     The start index of the piece you are moving
  * @param endIdx:       Where your piece is going to go
  * @param moveVal:      The type of move you are executing
+ * @param moveList      The current movelist
  * 
  * @note:   Assumption at this point is that the move is valid within the 
  *          the rules of chess
  */
-void ChessBoard::BuildMove(pieceType_e pt, uint64_t startIdx, uint64_t endIdx, moveValidity_e moveVal)
+void ChessBoard::BuildMove(uint8_t pt, uint8_t startIdx, uint8_t endIdx, uint8_t moveVal, moveType_t **moveList)
 {
 
-    moveType_t *newMove;
+    moveType_t *newMove, *lastMove;
     bool legalMove = true;
 
     if(moveVal == MOVE_INVALID)
@@ -945,9 +960,9 @@ void ChessBoard::BuildMove(pieceType_e pt, uint64_t startIdx, uint64_t endIdx, m
     newMove->endIdx = endIdx;
 
     // Move string, only for interace with UCI
-    newMove->moveString[0] = Util_ConvertPieceTypeToChar(pt);
-    newMove->moveString[1] = ((char) (endIdx >> 3)) + '0';
-    newMove->moveString[2] = (endIdx % 8);
+    //newMove->moveString[0] = Util_ConvertPieceTypeToChar(pt);
+    //newMove->moveString[1] = ((char) (endIdx >> 3)) + '0';
+    //newMove->moveString[2] = (endIdx % 8);
 
     // Denote the piece type
     newMove->pt = pt;
@@ -959,16 +974,22 @@ void ChessBoard::BuildMove(pieceType_e pt, uint64_t startIdx, uint64_t endIdx, m
 
     if(legalMove)
     {
-        // Generate the resultant board -- value will be calculated and applied to move
-        this->SpawnNextChessBoard(newMove);
-
         // Add this move to the list of possible moves at this board position
-        ChessBoard::AddMoveToMoveList(this, newMove);
+        newMove->adjMove = *moveList;
+        *moveList = newMove;
+
     }
     else
     {
+        //lastMove = GetLastMove();
+        //if(lastMove == NULL)
+        //{
+
+        //}
+
         // If this move was illegal, then the last move HAS to be illegal
-        this->lastMove->legalMove = false;
+        //lastMove = GetLastMove;
+        lastMove->legalMove = false;
     }
 }
 
@@ -981,24 +1002,25 @@ void ChessBoard::BuildMove(pieceType_e pt, uint64_t startIdx, uint64_t endIdx, m
  */
 void ChessBoard::AddMoveToMoveList(ChessBoard *cb, moveType_t *moveToAdd)
 {
-    moveType_t *moveListIdx, *moveListTemp;
 
     // Confirm our parameters are good
     Util_Assert(cb != NULL, "Gave bad CB to AddMoveToMoveList!");
     Util_Assert(moveToAdd != NULL, "Gave bad move to AddMoveToMoveList");
     Util_Assert(moveToAdd->adjMove == NULL, "Move was already part of another board");
 
-    if(cb->movesToEvaluateAtThisDepth == NULL)
+/*     if(cb->movesToEvaluateAtThisDepth == NULL)
     {
         moveToAdd->adjMove = NULL;
         cb->movesToEvaluateAtThisDepth = moveToAdd;
         return;
     }
 
-    moveListIdx = cb->movesToEvaluateAtThisDepth;
+    moveToAdd->adjMove = cb->movesToEvaluateAtThisDepth;
+    cb->movesToEvaluateAtThisDepth = moveToAdd;
+ */
 
     // We have the newest high value move, place at front
-    if(*moveListIdx < *moveToAdd)
+    /* if(*moveListIdx < *moveToAdd)
     {
         moveToAdd->adjMove = moveListIdx;
         cb->movesToEvaluateAtThisDepth = moveListIdx;
@@ -1030,7 +1052,7 @@ void ChessBoard::AddMoveToMoveList(ChessBoard *cb, moveType_t *moveToAdd)
     else
     {
         Util_Assert(0, "Unknown situation on addition of move to move list!");
-    }
+    } */
 }
 
 int64_t ChessBoard::EvaluateCurrentBoardValue(ChessBoard *cb)
@@ -1042,7 +1064,7 @@ int64_t ChessBoard::EvaluateCurrentBoardValue(ChessBoard *cb)
     for(idx = 0; idx < NUM_PIECE_TYPES; ++idx)
     {
         // @todo: deal with lategame kings
-        if((pieceType_e) idx == WHITE_KING || (pieceType_e) idx == BLACK_KING)
+        if((uint8_t) idx == WHITE_KING || (uint8_t) idx == BLACK_KING)
         {
             continue;
         }
@@ -1068,19 +1090,6 @@ int64_t ChessBoard::EvaluateCurrentBoardValue(ChessBoard *cb)
         }
     }
     return value;
-}
-
-
-void ChessBoard::SpawnNextChessBoard(moveType_t *moveToExecute)
-{
-    // @todo: Write this function
-    Util_Assert(moveToExecute != NULL, "Move provided was NULL");
-
-    ChessBoard *cb = new ChessBoard(this->pieces, this->occupied, this->searchDepth++, moveToExecute);
-    Util_Assert(cb != NULL, "Failed to allocate new chessboard");
-
-    moveToExecute->resultCB = cb;
-    moveToExecute->resultValue = cb->value;
 }
 
 /**
@@ -1144,8 +1153,7 @@ void ChessBoard::SpawnNextChessBoard(moveType_t *moveToExecute)
  *      That is 1.2 million possible moves (lol)
  */
 
-
-moveType_t *ChessBoard::GetNextMove(pieceType_e pt)
+moveType_t *ChessBoard::GetNextMove(uint8_t pt)
 {
     // Sort moves in descending order by value of the move
     

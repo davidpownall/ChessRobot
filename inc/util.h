@@ -11,7 +11,7 @@
 #define STATUS_SUCCESS  (0)
 #define STATUS_FAIL     (1)
 
-char Util_ConvertPieceTypeToChar(pieceType_e pt);
+char Util_ConvertPieceTypeToChar(uint8_t pt);
 void Util_Assert(bool expr, std::string str);
 
 #endif // UTIL_DEFINE
