@@ -1,4 +1,5 @@
 #include <iostream>
+#include <mutex>
 #include "util.h"
 #include "chessboard.h"
 
@@ -57,6 +58,11 @@ ChessBoard::ChessBoard(void)
     // Value is 0 at game start
     this->value = 0;
 
+    // It is not possible for two subsequent chessboard states
+    // to have the exact same bits set, so we can use this to
+    // denote if we are on the first move
+    this->prevOccupied = this->occupied;
+
 }
 
 /**
@@ -84,21 +90,7 @@ ChessBoard::ChessBoard(uint64_t *pieces, uint64_t occupied, uint64_t searchDepth
         return;
     }
 
-    // Copy the board over
-    //memcpy((void *) this->pieces, (void*) pieces, (NUM_PIECE_TYPES + 2)*sizeof(uint64_t));
-
-    // @todo: Figure out a way to determine if an occupied bitboard is valid
-    //this->occupied = occupied;
-    //this->empty = ~occupied;
-
-    //this->searchDepth = searchDepth;
-
-    //this->lastMove = lastMove;
-    //@todo: Make function static
-    //this->ApplyMoveToBoard(this->lastMove);
-
     ChessBoard::EvaluateCurrentBoardValue(this);
-
 }
 
 /**
@@ -110,7 +102,7 @@ ChessBoard::ChessBoard(uint64_t *pieces, uint64_t occupied, uint64_t searchDepth
  */
 moveType_t *ChessBoard::GenerateMoves(uint8_t pt)
 {
-    moveType_t *moveList;
+    moveType_t **moveList;
     uint8_t nextPt;
     uint64_t i = 1;
 
@@ -119,108 +111,35 @@ moveType_t *ChessBoard::GenerateMoves(uint8_t pt)
         nextPt = BLACK_PIECES;
 
         // Generate possible plays for white
-        GeneratePawnMoves(WHITE_PAWN, &moveList);
-        GenerateRookMoves(WHITE_ROOK, &moveList);
-        GenerateBishopMoves(WHITE_BISHOP, &moveList);
-        GenerateKnightMoves(WHITE_KNIGHT, &moveList);
-        GenerateQueenMoves(WHITE_QUEEN, &moveList);
-        GenerateKingMoves(WHITE_KING, &moveList);
+        GeneratePawnMoves(WHITE_PAWN, moveList);
+        GenerateRookMoves(WHITE_ROOK, moveList);
+        GenerateBishopMoves(WHITE_BISHOP, moveList);
+        GenerateKnightMoves(WHITE_KNIGHT, moveList);
+        GenerateQueenMoves(WHITE_QUEEN, moveList);
+        GenerateKingMoves(WHITE_KING, moveList);
     }
     else if (pt == BLACK_PIECES)
     {
         nextPt = WHITE_PIECES;
 
         // Generate possible plays for black
-        GeneratePawnMoves(BLACK_PAWN, &moveList);
-        GenerateRookMoves(BLACK_ROOK, &moveList);
-        GenerateBishopMoves(BLACK_BISHOP, &moveList);
-        GenerateKnightMoves(BLACK_KNIGHT, &moveList);
-        GenerateQueenMoves(BLACK_QUEEN, &moveList);
-        GenerateKingMoves(BLACK_KING, &moveList);
+        GeneratePawnMoves(BLACK_PAWN, moveList);
+        GenerateRookMoves(BLACK_ROOK, moveList);
+        GenerateBishopMoves(BLACK_BISHOP, moveList);
+        GenerateKnightMoves(BLACK_KNIGHT, moveList);
+        GenerateQueenMoves(BLACK_QUEEN, moveList);
+        GenerateKingMoves(BLACK_KING, moveList);
     }
     else
     {
         Util_Assert(0, "Error in input piece type");
     }
 
-    return moveList;
-
-    // So now we have all possible moves. We know that our moves are stored
-    // as a linked list with the best moves already at the front. We want
-    // to free up the moves & boards of all moves we do not want to use moving
-    // forward at this depth. It almost certainly better to free up as much
-    // in-use memory as possible prior to executing the next level of our DFS
-
-    // If we have any illegal moves at the start, eliminate them
-/*     moveListTemp = this->movesToEvaluateAtThisDepth;
-    while(moveListTemp != NULL && !moveListTemp->legalMove)
-    {
-        moveListTemp = this->movesToEvaluateAtThisDepth->adjMove;
-        DeleteMove(this->movesToEvaluateAtThisDepth);
-        this->movesToEvaluateAtThisDepth = moveListTemp;
-    }
-    // Our firstMove is now confirmed legal, if not NULL
-    if(moveListTemp != NULL)
-    {
-        moveListIdx = moveListTemp->adjMove;
-        while(moveListIdx != NULL && i < movesAtSearchDepth[this->searchDepth])
-        {
-            // Illegal move detected -> we put ourself in checkmate
-            if(!moveListIdx->legalMove)
-            {
-                moveListTemp->adjMove = moveListIdx->adjMove;
-                DeleteMove(moveListIdx);
-                // Advance two spaces if we need to pull a move, but do not count against search depth limit
-                moveListIdx = moveListTemp->adjMove->adjMove;
-            }
-            else
-            {
-                moveListIdx = moveListIdx->adjMove;
-                i++;
-            }
-        }
-
-        moveListTemp->adjMove = NULL;
-
-        // We know we have moves to delete if this is true
-        if(moveListIdx != NULL && i == movesAtSearchDepth[this->searchDepth])
-        {
-            // So delete the moves
-            while(moveListIdx != NULL){
-
-                moveListTemp = moveListIdx->adjMove;
-                ChessBoard::DeleteMove(moveListIdx);
-                moveListIdx = moveListTemp;
-            }
-        }
-
-        moveListIdx = this->movesToEvaluateAtThisDepth;
-
-        // We are the end of our DFS and we have found a new best value
-        if(movesAtSearchDepth[this->searchDepth] == 1 && *globalBestMove < *moveListIdx)
-        {   
-            DeleteMove(globalBestMove);
-            globalBestMove = moveListIdx;
-        }
-
-        while(moveListIdx != NULL && i < movesAtSearchDepth[this->searchDepth])
-        {
-            Util_Assert(moveListIdx->resultCB != NULL, "Move had null Chessboard!");
-            
-            // This will create all moves for the next chessboard
-            moveListIdx->resultCB->GenerateMoves(nextPt);
-            moveListIdx = moveListIdx->adjMove;
-            i++;
-        }
-    } */
-
-    // Board is not needed
-    //Add board to the deletion list
-    //delete this;
+    return *moveList;
 }
 
 /**
- * Determines the next best move via a minimax searc algorithm.
+ * Determines the next best move via a minimax search algorithm.
  * 
  * @param depth             The search depth to look
  * @param playerToMaximize  If we are attempting to maximize or minimize score
@@ -235,7 +154,7 @@ moveType_t *ChessBoard::GenerateMoves(uint8_t pt)
 int64_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize, moveType_t *movesToEvaluateAtThisDepth)
 {
     int64_t score, savedScore;
-    moveType_t *moveToEvaluate, *movesToEvaluateAtNextDepth;
+    moveType_t *moveToEvaluate, *movesToEvaluateAtNextDepth, *tempMove;
 
     if(depth == 0)
     {
@@ -256,7 +175,11 @@ int64_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize, moveType_
             {
                 globalBestMove = moveToEvaluate;
             }
-            //this->undoMove();
+            this->UndoMoveFromBoard();
+            tempMove = moveToEvaluate->adjMove;
+
+            delete moveToEvaluate;
+            moveToEvaluate = tempMove;
         }
     }
     else
@@ -272,26 +195,17 @@ int64_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize, moveType_
             {
                 globalBestMove = moveToEvaluate;
             }
-            //this->undoMove();
+
+            this->UndoMoveFromBoard();
+            tempMove = moveToEvaluate->adjMove;
+            
+            delete moveToEvaluate;
+            moveToEvaluate = tempMove;
         }
     }
     return score;
 }
 
-
-/**
- * Runs through the deletion procedure for a given move
- * 
- * @param moveToDelete  The move to delete
- */
-void ChessBoard::DeleteMove(moveType_t *moveToDelete)
-{
-    Util_Assert(moveToDelete != NULL, "Move to delete was already NULL");
-
-    //@todo implement this
-
-    return;
-}
 
 /**
  * Applies the current move to the chessboard
@@ -339,7 +253,7 @@ uint64_t ChessBoard::ApplyMoveToBoard(moveType_t *moveToApply)
         std::cout << "No piece of piecetype at expexted startIdx" << std::endl;
         return STATUS_FAIL;        
     }
-    
+
     if(moveToApply->pt < (NUM_PIECE_TYPES/2))
     {
         friendlyPieces = WHITE_PIECES;
@@ -357,6 +271,10 @@ uint64_t ChessBoard::ApplyMoveToBoard(moveType_t *moveToApply)
         std::cout << "There was a friendly piece where we wanted to move!" << std::endl;
         return STATUS_FAIL;
     }
+
+    memcpy(this->prevPieces, this->pieces, sizeof(uint64_t) * (NUM_PIECE_TYPES + 2));
+    this->prevEmpty = this->empty;
+    this->prevOccupied = this->occupied;
 
     // Apply the move for our piece type
     this->pieces[moveToApply->pt] ^= (1 << moveToApply->startIdx);
@@ -381,6 +299,28 @@ uint64_t ChessBoard::ApplyMoveToBoard(moveType_t *moveToApply)
 
     // @todo: Are we attempting to make a move while our king is in check
     //    that doesn't remove our king from check after applying the move
+
+    return STATUS_SUCCESS;
+
+}
+
+/**
+ * Removes the last move applied to this chessboard.
+ * 
+ * @returns STATUS_SUCCESS if successful, STATUS_FAIL otherwise
+ */
+uint64_t ChessBoard::UndoMoveFromBoard(void)
+{
+    if(this->occupied == this->prevOccupied)
+    {
+        std::cout << "Tried to undo first move from board!" << std::endl;
+        return STATUS_FAIL;
+    }
+
+    memcpy(this->pieces, this->prevPieces, sizeof(uint64_t) * (NUM_PIECE_TYPES + 2));
+    this->empty = this->prevEmpty;
+    this->occupied = this->prevOccupied;
+    this->value = this->prevValue;
 
     return STATUS_SUCCESS;
 
@@ -993,68 +933,6 @@ void ChessBoard::BuildMove(uint8_t pt, uint8_t startIdx, uint8_t endIdx, uint8_t
     }
 }
 
-/**
- * Given add the given move to the movelist of the given chessboard
- * 
- * @param cb        The chessboard to add the move to
- * @param moveToAdd The move to add to the chessboard
- * 
- */
-void ChessBoard::AddMoveToMoveList(ChessBoard *cb, moveType_t *moveToAdd)
-{
-
-    // Confirm our parameters are good
-    Util_Assert(cb != NULL, "Gave bad CB to AddMoveToMoveList!");
-    Util_Assert(moveToAdd != NULL, "Gave bad move to AddMoveToMoveList");
-    Util_Assert(moveToAdd->adjMove == NULL, "Move was already part of another board");
-
-/*     if(cb->movesToEvaluateAtThisDepth == NULL)
-    {
-        moveToAdd->adjMove = NULL;
-        cb->movesToEvaluateAtThisDepth = moveToAdd;
-        return;
-    }
-
-    moveToAdd->adjMove = cb->movesToEvaluateAtThisDepth;
-    cb->movesToEvaluateAtThisDepth = moveToAdd;
- */
-
-    // We have the newest high value move, place at front
-    /* if(*moveListIdx < *moveToAdd)
-    {
-        moveToAdd->adjMove = moveListIdx;
-        cb->movesToEvaluateAtThisDepth = moveListIdx;
-        return;
-    }
-
-    // Otherwise traverse until we find our spot
-    moveListTemp = moveListIdx;
-    moveListIdx = moveListIdx->adjMove;
-    while(moveListIdx != NULL && *moveToAdd < *moveListIdx)
-    {
-        moveListTemp = moveListIdx;
-        moveListIdx = moveListIdx->adjMove;
-    }
-
-    // We have two situations. First is if we have provided the new lowest value move.
-
-    if(moveListIdx == NULL)
-    {
-        moveListTemp->adjMove = moveToAdd;
-        moveToAdd->adjMove = NULL;
-    }
-    // Or we have found the point in the movelist where this move should go
-    else if(*moveToAdd < *moveListTemp && *moveListIdx < *moveToAdd)
-    {
-        moveToAdd->adjMove = moveListIdx;
-        moveListTemp->adjMove = moveToAdd;
-    }
-    else
-    {
-        Util_Assert(0, "Unknown situation on addition of move to move list!");
-    } */
-}
-
 int64_t ChessBoard::EvaluateCurrentBoardValue(ChessBoard *cb)
 {
     uint64_t idx, pieces;
@@ -1092,67 +970,6 @@ int64_t ChessBoard::EvaluateCurrentBoardValue(ChessBoard *cb)
     return value;
 }
 
-/**
- * Algorithm for selecting moves:
- * 
- *  We know: 
- *      -   the the current state of our chessboard after move i-1 C(i)
- *      -   the current value of our chessboard after move i-1 V(i)
- *      -   the possible moves for our position after move i-1 M(i)
- *              - each move denoted by m_j s.t. m_j is in M(i)
- * 
- *  We know that we have a list of possible moves available to use
- *      -   We at this point have made no determination about whether
- *          or not that move is any good
- *      -   We now want to evaluate all of our moves in M(i)
- * 
- *  For a basic evaluation of a given move, we need to consider what
- *  our board value will be at the start of our next move, or after our
- *  opponent has moved. This can be represented as V(i+2):
- * 
- *      Value(m_j) = V(i+2) - V(i) 
- * 
- *  For a general search depth of n moves into the future, this is:
- * 
- *      Value(m_j) = V(i+n) - V(i)
- * 
- *  Where generally:
- *  
- *      V(i) = V(i-1) + Value(m_prev)
- * 
- *  Which leads to the selection of our "best" move:
- * 
- *  m_next  = MAX_(m_j in M(i)) { Value(m_j) }
- *          = MAX_(m_j in M(i)) { V(i+n) - V(i) }
- * 
- *  Bringing in the recurrence:
- * 
- *  m_next = MAX_(m_j in M(i)) { V(i+n-1) + Value(m_(n-1)) - V(i) }
- *  m_next = MAX_(m_j in M(i)) { V(i+n-2) + Value(m_(n-2)) + Value(m_(n-1)) - V(i) }
- *  ...
- *  m_next = MAX_(m_j in M(i)) { SUM_{k=j}{j+n-1}( Value(m_(k)) ) }
- * 
- *  But value will be negative if our opponent is moving:
- * 
- *      Let X(i) be an objective function s.t. X(k) = 1     iff k-j % 2 == 0
- *                                                  = -1    otherwise
- * 
- *  m_next = MAX_(m_j in M(i)) { SUM_{k=j}{j+n-1}( Value(m_(k))X(k) ) }
- * 
- *  Obviously the move space will be exponential, so we want to
- *  prune this search tree as we go through it. 
- * 
- *  Let's ballpark this to 5 move future search to start:
- * 
- *      |M(i)|   = 40
- *      |M(i+1)| = 30
- *      |M(i+2)| = 20
- *      |M(i+3)| = 10
- *      |M(i+4)| = 5
- * 
- *      That is 1.2 million possible moves (lol)
- */
-
 moveType_t *ChessBoard::GetNextMove(uint8_t pt)
 {
     // Sort moves in descending order by value of the move
@@ -1165,14 +982,418 @@ moveType_t *ChessBoard::GetNextMove(uint8_t pt)
     return NULL;
 }
 
-uint64_t InitializeChessBoard(void)
+moveType_t *ConvertStringToMove(ChessBoard* cb, std::string str)
 {
-    cb = new ChessBoard();
+    moveType_t *move;
+    uint64_t idxToFind;
     
+    Util_Assert(cb != NULL, "Was passed a bad chessboard");
+    Util_Assert(!str.empty(), "Was passed empty string");
+
+    move = new moveType_t;
+    Util_Assert(move != NULL, "Failed to allocate move");
+
+    move->endIdx = (str[str.length() - 2] - 'a') + ((int) str[str.length() - 1])*8;
+    
+    // Pawn move
+    if(!isupper(str[0]))
+    {
+        move->pt = WHITE_PAWN;
+    
+        // Capture
+        if(str[1] == 'x')
+        {
+            move->moveVal = MOVE_VALID_ATTACK;
+            if((str[str.length() - 2] - 'a') - (str[0] - '0') > 0)
+            {
+                move->startIdx = move->endIdx - 7;
+            }
+            else
+            {
+                move->startIdx = move->endIdx - 9;
+            }
+        }
+        else
+        {
+            move->moveVal = MOVE_VALID;
+
+            // Since we aren't a capture, we either moves one or two squares
+            if(cb->GetPiece(WHITE_PAWN) & (1 << (move->endIdx - 8)) > 0)
+            {
+                move->startIdx = move->endIdx - 8;
+            }
+            // Two squares
+            else if(cb->GetPiece(WHITE_PAWN) & (1 << (move->endIdx - 16)) > 0)
+            {
+                move->startIdx = move->endIdx - 16;
+            }
+            else
+            {
+                Util_Assert(0, "Invalid incoming pawn move");
+            }
+        }
+    }
+    else
+    {
+        if(str[0] == 'R')
+        {
+            move->pt = WHITE_ROOK;    
+        }
+        else if(str[0] == 'N')
+        {
+            move->pt = WHITE_KNIGHT;
+        }
+        else if(str[0] == 'B')
+        {
+            move->pt = WHITE_BISHOP;
+        }
+        else if(str[0] == 'Q')
+        {
+            move->pt = WHITE_QUEEN;
+        }
+        else if(str[0] == 'K')
+        {
+            move->pt = WHITE_KING;
+        }
+        else
+        {
+            Util_Assert(0, "Bad piece type provided in move");
+        }
+
+        Util_Assert(cb->GetPiece(move->pt) != 0, "Illegal move!");
+
+        // If second in str is a lower case letter or number, we can tell immediately what our start idx
+        // if number
+        if(str[1] - '0' < 8)
+        {
+            move->startIdx = __builtin_clz(cb->GetPiece(move->pt) & (0xFF << (str[1] - '0')*8));
+        }
+        // else if lower case letter
+        else if(str[1] - 'a' < 8)
+        {
+            idxToFind = cb->GetPiece(move->pt);
+            while(__builtin_clz(idxToFind) % 8 != str[1] - 'a')
+            {
+                idxToFind ^= (1 << __builtin_clz(idxToFind));
+            }
+            move->startIdx = 1 << __builtin_clz(idxToFind);
+        }
+        else
+        {
+            // otherwise we need to find our start location. We know there wouldn't have been
+            // additional info in the move string iff there was only one piece that could make that move
+            idxToFind = cb->GetPiece(move->pt);
+            while(!cb->IsValidMove(move->pt, __builtin_clz(idxToFind), move->endIdx))
+            {
+                idxToFind ^= (1 << __builtin_clz(idxToFind));
+            }
+            move->startIdx = __builtin_clz(idxToFind);
+        }
+    }
+
+    return move;
+}
+
+bool ChessBoard::IsValidRookMove(ChessBoard *cb, uint8_t idxToFind, uint8_t endIdx)
+{
+    uint8_t mask, largerIdx, smallerIdx;
+
     if(cb == NULL)
     {
-        return 1;
+        return false;
     }
-    return 0;
+
+    if(endIdx > idxToFind)
+    {
+        largerIdx = endIdx;
+        smallerIdx = idxToFind;
+    }
+    else
+    {
+        largerIdx = idxToFind;
+        smallerIdx = endIdx;    
+    }
+
+    // IAre we on the same rank or file AND are the indicies between these two
+    // locations empty            
+    if(endIdx % 8 == idxToFind % 8) // same column
+    {
+        // Now we have the column values for our occupied squares
+        mask = cb->occupied & (COLUMN_MASK << endIdx % 8);
+        mask &= ((COLUMN_MASK << endIdx % 8) >> 8*(8 - largerIdx/8));
+        mask &= ~((COLUMN_MASK << endIdx % 8) >> 8*(8 - smallerIdx/8 + 1));
+
+        // if our mask == 0 then the move is valid
+        return (mask == 0);
+    }
+    else if(endIdx >> 3 == idxToFind >> 3)
+    {
+        // Now we have the row masked
+        mask = cb->occupied & (0xFF << (endIdx/8));
+        mask &= ~(BOARD_MASK << largerIdx);
+        mask &= ~(BOARD_MASK >> (63 - smallerIdx));
+
+        return (mask == 0);
+    }
+
+    return false;
+}
+
+bool ChessBoard::IsValidKnightMove(uint8_t idxToFind, uint8_t endIdx)
+{
+    if(endIdx > idxToFind)
+    {
+        // Assess upwards vertical moves
+        if(idxToFind < NUM_BOARD_INDICIES - 16)
+        {
+            // Can we up then left or right
+            if((idxToFind + 15 % 8 < idxToFind % 8 && idxToFind + 15 == endIdx)
+                || (idxToFind + 17 % 8 > idxToFind % 8 && idxToFind + 17 == endIdx))
+            {
+                return true;
+            }
+        }
+        // Assess horizontal upwards moves
+        if(idxToFind < NUM_BOARD_INDICIES - 8)
+        {
+            // Can we move left then up or right then up
+            if((idxToFind % 8 >= 2 && idxToFind + 6 < NUM_BOARD_INDICIES && idxToFind + 6 == endIdx)
+                || (idxToFind % 8 < 6 && idxToFind + 10 < NUM_BOARD_INDICIES && idxToFind + 10 == endIdx))
+            {
+                return true;
+            }
+        }
+    }
+    else if(idxToFind > endIdx)
+    {
+        // Assess downwards vertical moves
+        if(idxToFind >= 16)
+        {
+            // Can we down then left or right
+            if((idxToFind - 15 % 8 < idxToFind % 8 && idxToFind - 15 == endIdx)
+                || (idxToFind - 17 % 8 > idxToFind % 8 && idxToFind - 17 == endIdx))
+            {
+                return true;
+            }
+        }
+        // Assess horizontal downwards moves
+        if(idxToFind >= 8)
+        {
+            // Can we move left then down or right then down
+            if((idxToFind % 8 >= 2 && idxToFind - 6 < NUM_BOARD_INDICIES && idxToFind - 6 == endIdx)
+                || (idxToFind % 8 < 6 && idxToFind - 10 < NUM_BOARD_INDICIES && idxToFind - 10 == endIdx))
+            {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+
+bool ChessBoard::IsValidBishopMove(ChessBoard *cb, uint8_t idxToFind, uint8_t endIdx)
+{
+    int8_t temp;
+    uint8_t largerIdx, smallerIdx;
+
+    if(cb == NULL)
+    {
+        return false;
+    }
+
+    if(endIdx > idxToFind)
+    {
+        largerIdx = endIdx;
+        smallerIdx = idxToFind;
+    }
+    else
+    {
+        largerIdx = idxToFind;
+        smallerIdx = endIdx;    
+    }
+
+    // Are the start and end indicies on the same diagonal
+    if(largerIdx - smallerIdx % 7 == 0)
+    {
+        temp = 7;
+    }
+    else if(largerIdx - smallerIdx & 9 == 0)
+    {
+        temp = 9;
+    }
+    else
+    {
+        return false;
+    }
+    smallerIdx += temp;
+    // This will traverse the diagonal and search for impediments
+    while(smallerIdx != largerIdx)
+    {
+        // There is something in the way
+        if((1 << smallerIdx) & cb->occupied)
+        {
+            return false;
+        }
+        smallerIdx += temp;
+    }
+    return true;
+}
+
+/**
+ * Determines if the piece type at this location can make a valid move to the endIdx
+ * 
+ * @param pt        The piece type making the move
+ * @param idxToFind The index of the piece being checked
+ * @param endIdx    The index where the piece moved to
+ */
+bool ChessBoard::IsValidMove(uint8_t pt, uint8_t idxToFind, uint8_t endIdx)
+{
+    int8_t temp;
+    bool status;
+
+    switch(pt % (NUM_PIECE_TYPES/2))
+    {
+        // Pawn
+        case 0:
+            std::cout << "Pawn logic not implemented for IsValidMove!" << std::endl;
+            status = false;
+            break;
+        // Rook
+        case 1:
+            status = ChessBoard::IsValidRookMove(this, idxToFind, endIdx);
+            break;
+        // Knight
+        case 2:
+            status = ChessBoard::IsValidKnightMove(idxToFind, endIdx);
+            break;
+        // Bishop
+        case 3:
+            status = ChessBoard::IsValidBishopMove(this, idxToFind, endIdx);
+            break;
+        // Queen
+        case 4:
+            status = ChessBoard::IsValidRookMove(this, idxToFind, endIdx)
+                        || ChessBoard::IsValidBishopMove(this, idxToFind, endIdx);
+            break;
+        // King
+        case 5:
+            // Assuming a single king (which is always true)
+            status = true;
+        default:
+            return false;
+    }
+
+    return true;
+}
+
+std::string ConvertMoveToString(ChessBoard *cb, moveType_t *move)
+{
+    std::string moveStr;
+    uint64_t mask;
+
+    Util_Assert(move != NULL, "Move provided was NULL");    
+    Util_Assert(cb != NULL, "Chessboard provided was NULL");
+
+    // Is this a castle?
+    if(move->moveVal & MOVE_VALID_CASTLE_KING)
+    {
+        moveStr = "O-O";
+    }
+    // Is this a castle?
+    else if(move->moveVal & MOVE_VALID_CASTLE_QUEEN)
+    {
+        moveStr = "O-O-O";
+    }    
+    // Is this a capture?
+    else if(move->moveVal & MOVE_VALID_ATTACK)
+    {
+        moveStr = "x";
+    }
+    // Is this a regular move?
+    else if(move->moveVal & MOVE_VALID)
+    {
+        moveStr = "";
+    }
+    else
+    {
+        Util_Assert(0, "Invalid move the provided");
+    }
+    
+    // Was this move a check move
+    if(move->moveVal & MOVE_VALID_CHECK)
+    {
+
+    }
+    // Was this move a checkmate
+    else if(move->moveVal & MOVE_VALID_MATE)
+    {
+
+    }
+
+    // Are there are pieces of the same type that can make this move?
+    if(move->pt % NUM_PIECE_TYPES/2 != 0 && move->pt % NUM_PIECE_TYPES/2 != 5)
+    {
+        
+    }
+
+    // If yes, specify at the start of move string
+        // Common row
+        // Common column
+        // Knight special case
+
+    // Get row and column from the endIdx
+
+    return moveStr;
+}
+
+/**
+ * Entry point where we run the game from. Split into two stages
+ *  
+ * 1) Accept opponent input and interpret
+ * 
+ * 2) Search for best move and provide response
+ * 
+ */
+void PlayGame(void)
+{
+    moveType_t *tempMove, *ourMoves, selectedMove;
+    std::string str;
+
+    // Get the board
+    ChessBoard *cb = new ChessBoard();
+    if(cb == NULL)
+    {
+        return;
+    }
+
+    // Main loop of the chess game, we are playing as black
+    while(true)
+    {
+        // State 1
+        while(str.empty())
+        {
+            std::cin >> str;
+        }
+        tempMove = ConvertStringToMove(cb, str);
+
+        Util_Assert(tempMove != NULL, "Received bad move!");
+
+        cb->ApplyMoveToBoard(tempMove);
+        ourMoves = cb->GenerateMoves(BLACK_PIECES);
+
+        // State 2
+        cb->GetBestMove(SEARCH_DEPTH, false, ourMoves);
+        selectedMove = *globalBestMove;
+
+        delete tempMove;
+        while(ourMoves != NULL)
+        {
+            tempMove = ourMoves->adjMove;
+            delete ourMoves;
+            ourMoves = tempMove;
+        }
+
+        // State 3
+        std::cout << "Response:" << ConvertMoveToString(cb, &selectedMove) << std::endl;
+    }
 
 }

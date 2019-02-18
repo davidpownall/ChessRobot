@@ -1,4 +1,5 @@
 #include <cstdint>
+#include <string>
 #include <queue>
 
 #ifndef CHESSBOARD_DEFINE
@@ -25,13 +26,21 @@
 #define BOARD_START_USED    0xffff00000000ffff
 #define BOARD_START_EMPTY   0x0000FFFFFFFF0000
 
+#define COLUMN_MASK         0x1010101010101010
+#define BOARD_MASK          0xFFFFFFFFFFFFFFFF
+
 #define NUM_PIECE_TYPES     12
 #define MAX_EVAL_MOVES      40
 #define NUM_BOARD_INDICIES  64
 
-#define MOVE_INVALID 0x0
-#define MOVE_VALID 0x1
-#define MOVE_VALID_ATTACK 0x2
+#define MOVE_INVALID            0x0
+#define MOVE_VALID              0x1
+#define MOVE_VALID_ATTACK       0x2
+#define MOVE_VALID_CASTLE_KING  0x4
+#define MOVE_VALID_CASTLE_QUEEN 0x8
+#define MOVE_VALID_CHECK        0x10
+#define MOVE_VALID_MATE         0x20
+
 
 #define WHITE_PAWN 0x0
 #define WHITE_ROOK 0x1
@@ -43,26 +52,28 @@
 #define BLACK_ROOK 0x7
 #define BLACK_BISHOP 0x8
 #define BLACK_KNIGHT 0x9
-#define BLACK_QUEEN 0x10
-#define BLACK_KING 0x11
-#define WHITE_PIECES 0x12
-#define BLACK_PIECES 0x13
+#define BLACK_QUEEN 0xa
+#define BLACK_KING 0xb
+#define WHITE_PIECES 0xc
+#define BLACK_PIECES 0xd
 
 /**
  * The structure which defines a given move applied to a chessboard. In order to
- * maximize the performance of the engine, 8 bytes is the hard cap of structure size.
+ * maximize the performance of the engine, 16 bytes is the hard cap of structure size.
  */
 typedef struct moveType_s
 {
+    // Forms the move list for chessbord state
+    struct moveType_s *adjMove;
+
     uint32_t startIdx: 6; // Start index of our move
     uint32_t endIdx: 6; // End index of our move
     uint32_t pt: 4; // What piece type we are moving
-    uint32_t moveVal: 2; // What type of move this is
-    uint32_t legalMove; // Is this move actually legal
-    uint32_t reserved: 13;
+    uint32_t moveVal: 6; // What type of move this is
+    uint32_t legalMove: 1; // Is this move actually legal
+    uint32_t reserved: 9;
 
-    // Forms the move list for chessbord state
-    struct moveType_s *adjMove;
+    // Another 4 bytes of padding will be added by the compiler
 
 } moveType_t;
 
@@ -71,23 +82,26 @@ class ChessBoard
 private:
     /* 12 unique bitboard representations required + two general */
     uint64_t pieces[NUM_PIECE_TYPES + 2];
+    uint64_t prevPieces[NUM_PIECE_TYPES + 2];
 
     /* Union of all bitboards */
     uint64_t occupied;
+    uint64_t prevOccupied;
 
     /* Positions of all empty squares */
     uint64_t empty;
+    uint64_t prevEmpty;
 
     // The current value of the chessboard
     //      Positive = white's advantage
     //      Negative = black's advantage
     int64_t value;
+    int64_t prevValue;
 
     uint64_t threatMap;
 
     uint64_t searchDepth;
-    //moveType_t *movesToEvaluateAtThisDepth;
-    //moveType_t *lastMove;
+
 
 public:
 
@@ -120,9 +134,13 @@ public:
     moveType_t *GetNextMove(uint8_t pt);
     void BuildMove(uint8_t pt, uint8_t startIdx, uint8_t endIdx, uint8_t moveVal, moveType_t **moveList);
     uint64_t ApplyMoveToBoard(moveType_t *moveToApply);
+    uint64_t UndoMoveFromBoard(void);
 
-    static void AddMoveToMoveList(ChessBoard *cb, moveType_t *moveToAdd);
-    static void DeleteMove(moveType_t *moveToDelete);
+    static bool IsValidRookMove(ChessBoard *cb, uint8_t idxToFind, uint8_t endIdx);
+    static bool IsValidKnightMove(uint8_t idxToFind, uint8_t endIdx);
+    static bool IsValidBishopMove(ChessBoard *cb, uint8_t idxToFind, uint8_t endIdx);
+    static bool IsValidQueenMove(ChessBoard *cb, uint8_t idxToFind, uint8_t endIdx);
+    bool IsValidMove(uint8_t pt, uint8_t idxToFind, uint8_t endIdx);
 
     uint8_t CheckSpaceForMoveOrAttack(uint64_t idxToEval, uint8_t enemyPieces);
 
@@ -135,7 +153,9 @@ public:
 
 };
 
+std::string ConvertMoveToString(ChessBoard *cb, moveType_t *move);
+moveType_t *GetOpponentMove(ChessBoard *cb, std::string str);
 int64_t GetPositionValueFromTable(uint64_t pieceTypeBase, uint64_t idx);
-uint64_t InitializeChessBoard(void);
+void PlayGame(void);
 
 #endif // CHESSBOARD_DEFINE
