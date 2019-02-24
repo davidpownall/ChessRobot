@@ -58,7 +58,7 @@ void Util_Assert(bool expr, std::string str)
     if(!expr)
     {
         std::cout << str << std::endl;
-        std::cout << "Program hanging" << std::endl;
+        std::cout << "ASSERT -- Program hanging" << std::endl;
         while(true)
         {
             ;

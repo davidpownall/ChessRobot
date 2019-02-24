@@ -6,7 +6,7 @@
 static ChessBoard *cb;
 static moveType_t *globalBestMove;
 
-#define SEARCH_DEPTH 20
+#define SEARCH_DEPTH 5
 
 /**
  * Default constructor for the ChessBoard class. Creates a fresh board
@@ -133,6 +133,8 @@ moveType_t *ChessBoard::GenerateMoves(uint8_t pt)
     return moveList;
 }
 
+static uint64_t numMoves = 0;
+
 /**
  * Determines the next best move via a minimax search algorithm.
  * 
@@ -152,7 +154,6 @@ int64_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize, moveType_
     moveType_t *moveToEvaluate, *movesToEvaluateAtNextDepth, *tempMove;
 
     std::cout << "Assessing depth: " << depth << " for " << playerToMaximize << std::endl;
-
     if(depth == 0)
     {
         return -EvaluateCurrentBoardValue(this);
@@ -164,6 +165,7 @@ int64_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize, moveType_
         score = -1000000000000000;
         while(moveToEvaluate != NULL)
         {
+            numMoves++;
             this->ApplyMoveToBoard(moveToEvaluate);
             movesToEvaluateAtNextDepth = this->GenerateMoves(WHITE_PIECES);
             savedScore = score;
@@ -175,7 +177,7 @@ int64_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize, moveType_
             this->UndoMoveFromBoard();
             tempMove = moveToEvaluate->adjMove;
 
-            delete moveToEvaluate;
+            //delete moveToEvaluate;
             moveToEvaluate = tempMove;
         }
     }
@@ -184,6 +186,7 @@ int64_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize, moveType_
         score = 1000000000000000;
         while(moveToEvaluate != NULL)
         {
+            numMoves++;
             this->ApplyMoveToBoard(moveToEvaluate);
             movesToEvaluateAtNextDepth = this->GenerateMoves(BLACK_PIECES);
             savedScore = score;
@@ -196,7 +199,7 @@ int64_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize, moveType_
             this->UndoMoveFromBoard();
             tempMove = moveToEvaluate->adjMove;
             
-            delete moveToEvaluate;
+            //delete moveToEvaluate;
             moveToEvaluate = tempMove;
         }
     }
@@ -950,7 +953,7 @@ void ChessBoard::BuildMove(uint8_t pt, uint8_t startIdx, uint8_t endIdx, uint8_t
 int64_t ChessBoard::EvaluateCurrentBoardValue(ChessBoard *cb)
 {
     uint64_t idx, pieces;
-    int64_t value = 0;
+    int64_t value = 0, sign;
     Util_Assert(cb != NULL, "NULL Chessboard provided to evaluation function");
 
     for(idx = 0; idx < NUM_PIECE_TYPES; ++idx)
@@ -966,19 +969,16 @@ int64_t ChessBoard::EvaluateCurrentBoardValue(ChessBoard *cb)
         pieces = cb->pieces[idx];
         if(idx <= NUM_PIECE_TYPES / 2 - 1)
         {
-            while(pieces != 0)
-            {
-                value += GetPositionValueFromTable(idx & 6, __builtin_ctzll(pieces));
-                pieces ^= __builtin_ctzll(pieces);
-            }
+            sign = 1;
         }
         else
         {
-            while(pieces != 0)
-            {
-                value -= GetPositionValueFromTable(idx & 6, __builtin_clzll(pieces));
-                pieces ^= __builtin_clzll(pieces);
-            }
+            sign = -1;
+        }
+        while(pieces != 0)
+        {
+            value += sign*GetPositionValueFromTable(idx & 6, __builtin_ctzll(pieces));
+            pieces ^= (uint64_t) 1 << __builtin_ctzll(pieces);
         }
     }
     return value;
@@ -1404,7 +1404,6 @@ void PlayGame(void)
         cb->GetBestMove(SEARCH_DEPTH, false, ourMoves);
         selectedMove = *globalBestMove;
 
-        delete tempMove;
         while(ourMoves != NULL)
         {
             tempMove = ourMoves->adjMove;
