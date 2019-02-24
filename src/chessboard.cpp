@@ -102,7 +102,7 @@ ChessBoard::ChessBoard(uint64_t *pieces, uint64_t occupied, uint64_t searchDepth
  */
 moveType_t *ChessBoard::GenerateMoves(uint8_t pt)
 {
-    moveType_t **moveList;
+    moveType_t *moveList;
     uint8_t nextPt;
     uint64_t i = 1;
 
@@ -111,31 +111,31 @@ moveType_t *ChessBoard::GenerateMoves(uint8_t pt)
         nextPt = BLACK_PIECES;
 
         // Generate possible plays for white
-        GeneratePawnMoves(WHITE_PAWN, moveList);
-        GenerateRookMoves(WHITE_ROOK, moveList);
-        GenerateBishopMoves(WHITE_BISHOP, moveList);
-        GenerateKnightMoves(WHITE_KNIGHT, moveList);
-        GenerateQueenMoves(WHITE_QUEEN, moveList);
-        GenerateKingMoves(WHITE_KING, moveList);
+        GeneratePawnMoves(WHITE_PAWN, &moveList);
+        GenerateRookMoves(WHITE_ROOK, &moveList);
+        GenerateBishopMoves(WHITE_BISHOP, &moveList);
+        GenerateKnightMoves(WHITE_KNIGHT, &moveList);
+        GenerateQueenMoves(WHITE_QUEEN, &moveList);
+        GenerateKingMoves(WHITE_KING, &moveList);
     }
     else if (pt == BLACK_PIECES)
     {
         nextPt = WHITE_PIECES;
 
         // Generate possible plays for black
-        GeneratePawnMoves(BLACK_PAWN, moveList);
-        GenerateRookMoves(BLACK_ROOK, moveList);
-        GenerateBishopMoves(BLACK_BISHOP, moveList);
-        GenerateKnightMoves(BLACK_KNIGHT, moveList);
-        GenerateQueenMoves(BLACK_QUEEN, moveList);
-        GenerateKingMoves(BLACK_KING, moveList);
+        GeneratePawnMoves(BLACK_PAWN, &moveList);
+        GenerateRookMoves(BLACK_ROOK, &moveList);
+        GenerateBishopMoves(BLACK_BISHOP, &moveList);
+        GenerateKnightMoves(BLACK_KNIGHT, &moveList);
+        GenerateQueenMoves(BLACK_QUEEN, &moveList);
+        GenerateKingMoves(BLACK_KING, &moveList);
     }
     else
     {
         Util_Assert(0, "Error in input piece type");
     }
 
-    return *moveList;
+    return moveList;
 }
 
 /**
@@ -206,7 +206,6 @@ int64_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize, moveType_
     return score;
 }
 
-
 /**
  * Applies the current move to the chessboard
  * 
@@ -217,7 +216,7 @@ int64_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize, moveType_
 uint64_t ChessBoard::ApplyMoveToBoard(moveType_t *moveToApply)
 {
 
-    uint64_t friendlyPieces, enemyPieces;
+    uint8_t friendlyPieces, enemyPieces, friendlyStart, enemyStart;
 
     if(moveToApply == NULL)
     {
@@ -257,7 +256,9 @@ uint64_t ChessBoard::ApplyMoveToBoard(moveType_t *moveToApply)
     if(moveToApply->pt < (NUM_PIECE_TYPES/2))
     {
         friendlyPieces = WHITE_PIECES;
+        friendlyStart = WHITE_PAWN;
         enemyPieces = BLACK_PIECES;
+        enemyStart = BLACK_PAWN;
     }
     else
     {
@@ -266,7 +267,7 @@ uint64_t ChessBoard::ApplyMoveToBoard(moveType_t *moveToApply)
     }
 
     // 4) Is our end index occupied by our color
-    if(this->pieces[friendlyPieces] & (1 << moveToApply->endIdx) > 1)
+    if((this->pieces[friendlyPieces] & (1 << moveToApply->endIdx)) > 1)
     {
         std::cout << "There was a friendly piece where we wanted to move!" << std::endl;
         return STATUS_FAIL;
@@ -286,9 +287,9 @@ uint64_t ChessBoard::ApplyMoveToBoard(moveType_t *moveToApply)
 
     // If we are taking a piece, clear that square
     this->pieces[enemyPieces] &= ~(1 << moveToApply->endIdx);
-    for(uint64_t i = (uint64_t) enemyPieces; i < NUM_PIECE_TYPES/2; ++i)
+    for(uint8_t i = enemyStart; i < enemyStart + NUM_PIECE_TYPES/2; ++i) // @todo bug here find it
     {
-        this->pieces[(uint8_t) i] &= ~(1 << moveToApply->endIdx);
+        this->pieces[i] &= ~(1 << moveToApply->endIdx);
     }
 
     // Ancillary bitboards also need to be updated
@@ -339,7 +340,7 @@ uint64_t ChessBoard::UndoMoveFromBoard(void)
 void ChessBoard::GeneratePawnMoves(uint8_t pt, moveType_t **moveList)
 {
     // Pawns can move forward, or diagonally to strike, or en passant (tricky)
-    uint64_t pawn, pawns = this->pieces[pt];   
+    uint64_t i, pawn, pawns = this->pieces[pt];   
     moveType_t *lastMove;
 
     // All your pawns are dead, don't bother
@@ -354,11 +355,12 @@ void ChessBoard::GeneratePawnMoves(uint8_t pt, moveType_t **moveList)
 
     if(pt == WHITE_PAWN)
     {
-
-        for(uint64_t i = __builtin_clz(this->pieces[pt]); i < 64; ++i)
+        while(pawns != 0)
         {
-            pawn = (1 << i);
-        
+            i = __builtin_ctzll(pawns);
+            pawn = ((uint64_t) 1 << i);
+            pawns ^= pawn;
+
             // There are no pawns of our color at this location
             if(pawns & pawn == 0)
             {
@@ -372,25 +374,25 @@ void ChessBoard::GeneratePawnMoves(uint8_t pt, moveType_t **moveList)
                 && (this->pieces[WHITE_PIECES] & (pawn << 8)) == 0
                 && (this->pieces[BLACK_PIECES] & (pawn << 8)) == 0)
             {
-                this->BuildMove(WHITE_PAWN, __builtin_clz(pawn), i + 8, MOVE_VALID, moveList);
+                this->BuildMove(WHITE_PAWN, __builtin_ctzll(pawn), i + 8, MOVE_VALID, moveList);
                 
                 if( i < 16 
                     && (this->pieces[WHITE_PIECES] & (pawn << 8)) == 0
                     && (this->pieces[BLACK_PIECES] & (pawn << 8)) == 0)
                 {
-                    this->BuildMove(WHITE_PAWN, __builtin_clz(pawn), i + 16, MOVE_VALID, moveList);
+                    this->BuildMove(WHITE_PAWN, __builtin_ctzll(pawn), i + 16, MOVE_VALID, moveList);
                 }
             } 
 
             // Move left-diagonal to attack
             if( (i % 8 != 0) && (this->pieces[BLACK_PIECES] & (pawn << 7)) == 1)
             {
-                this->BuildMove(WHITE_PAWN, __builtin_clz(pawn), i + 7, MOVE_VALID, moveList);
+                this->BuildMove(WHITE_PAWN, __builtin_ctzll(pawn), i + 7, MOVE_VALID, moveList);
             }
 
             if( (i % 8 != 7) && (this->pieces[BLACK_PIECES] & (pawn << 9)) == 1)
             {
-                this->BuildMove(WHITE_PAWN, __builtin_clz(pawn), i + 9, MOVE_VALID, moveList), moveList;
+                this->BuildMove(WHITE_PAWN, __builtin_ctzll(pawn), i + 9, MOVE_VALID, moveList), moveList;
             }
 
             // En passant check
@@ -409,55 +411,47 @@ void ChessBoard::GeneratePawnMoves(uint8_t pt, moveType_t **moveList)
                 // Can we look to the left and did the pawn land there
                 if((i % 8 > 0) && ((i - lastMove->endIdx) == 1))
                 {
-                    this->BuildMove(WHITE_PAWN, __builtin_clz(pawn), i + 7, MOVE_VALID_ATTACK, moveList);
+                    this->BuildMove(WHITE_PAWN, __builtin_ctzll(pawn), i + 7, MOVE_VALID_ATTACK, moveList);
                 }
                 // Can we look to the right and did the pawn land there
                 if((i % 8 < 7) && ((lastMove->endIdx - i) == 1))
                 {
-                    this->BuildMove(WHITE_PAWN, __builtin_clz(pawn), i + 9, MOVE_VALID_ATTACK, moveList);
+                    this->BuildMove(WHITE_PAWN, __builtin_ctzll(pawn), i + 9, MOVE_VALID_ATTACK, moveList);
                 }          
             }        
         }
     }
     else
     {
-        for(uint64_t i = __builtin_ctz(this->pieces[pt]); i < 64; --i)
+        while(pawns != 0)
         {
-
-            pawn = (1 << i);
+            i = __builtin_ctzll(pawns);
+            pawn = ((uint64_t) 1 << i);
+            pawns ^= pawn;
         
-            // There are no pawns of our color at this location
-            if(pawns & pawn == 0)
-            {
-                continue;
-            }
-
-            // So now we have the location of our first available pawn, we need to check moves
-
             // Move forward one square
             if( i >= 8
-                && (this->pieces[WHITE_PIECES] & (pawn >> 8)) == 0
-                && (this->pieces[BLACK_PIECES] & (pawn >> 8)) == 0)
+                && ((this->occupied & (pawn >> 8)) == 0))
             {
-                this->BuildMove(BLACK_PAWN, __builtin_clz(pawn), i - 8, MOVE_VALID, moveList);
+                this->BuildMove(BLACK_PAWN, i, i - 8, MOVE_VALID, moveList);
                 
-                if( i >= 56 
+                if( i >= 48 
                     && (this->pieces[WHITE_PIECES] & (pawn >> 8)) == 0
                     && (this->pieces[BLACK_PIECES] & (pawn >> 8)) == 0)
                 {
-                    this->BuildMove(BLACK_PAWN, __builtin_clz(pawn), i - 16, MOVE_VALID, moveList);
+                    this->BuildMove(BLACK_PAWN, __builtin_ctzll(pawn), i - 16, MOVE_VALID, moveList);
                 }
             } 
 
             // Move left-diagonal to attack
             if( (i % 8 != 7) && (this->pieces[BLACK_PIECES] & (pawn >> 9)) == 1)
             {
-                this->BuildMove(BLACK_PAWN, __builtin_clz(pawn), i - 9, MOVE_VALID_ATTACK, moveList);
+                this->BuildMove(BLACK_PAWN, __builtin_ctzll(pawn), i - 9, MOVE_VALID_ATTACK, moveList);
             }
 
             if( (i % 8 != 0) && (this->pieces[BLACK_PIECES] & (pawn >> 7)) == 1)
             {
-                this->BuildMove(BLACK_PAWN, __builtin_clz(pawn), i - 7, MOVE_VALID_ATTACK, moveList);
+                this->BuildMove(BLACK_PAWN, __builtin_ctzll(pawn), i - 7, MOVE_VALID_ATTACK, moveList);
             }
 
             // En passant check
@@ -476,12 +470,12 @@ void ChessBoard::GeneratePawnMoves(uint8_t pt, moveType_t **moveList)
                 // Can we look to the left and did the pawn land there
                 if((i % 8 > 0) && ((i - lastMove->endIdx) == 1))
                 {
-                    this->BuildMove(BLACK_PAWN, __builtin_clz(pawn), i - 9, MOVE_VALID_ATTACK, moveList);
+                    this->BuildMove(BLACK_PAWN, __builtin_ctzll(pawn), i - 9, MOVE_VALID_ATTACK, moveList);
                 }
                 // Can we look to the right and did the pawn land there
                 if((i % 8 < 7) && ((lastMove->endIdx - i) == 1))
                 {
-                    this->BuildMove(BLACK_PAWN, __builtin_clz(pawn), i - 7, MOVE_VALID_ATTACK, moveList);
+                    this->BuildMove(BLACK_PAWN, __builtin_ctzll(pawn), i - 7, MOVE_VALID_ATTACK, moveList);
                 }          
             }
         }
@@ -509,7 +503,7 @@ void ChessBoard::GenerateRookMoves(uint8_t pt, moveType_t **moveList)
     {
 
         // Get and clear index
-        rookIdx = __builtin_clz(rooks);
+        rookIdx = __builtin_ctzll(rooks);
         rooks ^= (1 << rookIdx);
 
         temp = rookIdx;
@@ -611,7 +605,7 @@ void ChessBoard::GenerateBishopMoves(uint8_t pt, moveType_t **moveList)
 
     while(bishops > 0)
     {
-        bishopIdx = __builtin_clz(bishops);
+        bishopIdx = __builtin_ctzll(bishops);
         bishops ^= (1 << bishopIdx);
 
         // Four directions of movement
@@ -620,7 +614,7 @@ void ChessBoard::GenerateBishopMoves(uint8_t pt, moveType_t **moveList)
         temp = bishopIdx;
         do
         {
-            if(temp % 8 == 0 || __builtin_clz(temp) < 8)
+            if(temp % 8 == 0 || __builtin_ctzll(temp) < 8)
             {
                 break;
             }
@@ -639,7 +633,7 @@ void ChessBoard::GenerateBishopMoves(uint8_t pt, moveType_t **moveList)
         temp = bishopIdx;
         do
         {
-            if(temp % 8 == 7 || __builtin_clz(temp) < 8)
+            if(temp % 8 == 7 || __builtin_ctzll(temp) < 8)
             {
                 break;
             }
@@ -658,7 +652,7 @@ void ChessBoard::GenerateBishopMoves(uint8_t pt, moveType_t **moveList)
         temp = bishopIdx;
         do
         {
-            if(temp % 8 == 0 || __builtin_clz(temp) >= 54)
+            if(temp % 8 == 0 || __builtin_ctzll(temp) >= 54)
             {
                 break;
             }
@@ -677,7 +671,7 @@ void ChessBoard::GenerateBishopMoves(uint8_t pt, moveType_t **moveList)
         temp = bishopIdx;
         do
         {
-            if(temp % 8 == 7 || __builtin_clz(temp) >= 54)
+            if(temp % 8 == 7 || __builtin_ctzll(temp) >= 54)
             {
                 break;
             }
@@ -723,7 +717,7 @@ void ChessBoard::GenerateKnightMoves(uint8_t pt, moveType_t **moveList)
     // The only blocks for moves are from friendly pieces
     while(knights > 0)
     {
-        knightIdx = __builtin_clz(knights);
+        knightIdx = __builtin_ctzll(knights);
         knights ^= (1 << knightIdx);
 
         // Assess upwards vertical moves
@@ -899,11 +893,6 @@ void ChessBoard::BuildMove(uint8_t pt, uint8_t startIdx, uint8_t endIdx, uint8_t
     newMove->startIdx = startIdx;
     newMove->endIdx = endIdx;
 
-    // Move string, only for interace with UCI
-    //newMove->moveString[0] = Util_ConvertPieceTypeToChar(pt);
-    //newMove->moveString[1] = ((char) (endIdx >> 3)) + '0';
-    //newMove->moveString[2] = (endIdx % 8);
-
     // Denote the piece type
     newMove->pt = pt;
 
@@ -954,16 +943,16 @@ int64_t ChessBoard::EvaluateCurrentBoardValue(ChessBoard *cb)
         {
             while(pieces != 0)
             {
-                value += GetPositionValueFromTable(idx & 6, __builtin_clz(pieces));
-                pieces ^= __builtin_clz(pieces);
+                value += GetPositionValueFromTable(idx & 6, __builtin_ctzll(pieces));
+                pieces ^= __builtin_ctzll(pieces);
             }
         }
         else
         {
             while(pieces != 0)
             {
-                value -= GetPositionValueFromTable(idx & 6, __builtin_ctz(pieces));
-                pieces ^= __builtin_ctz(pieces);
+                value -= GetPositionValueFromTable(idx & 6, __builtin_clzll(pieces));
+                pieces ^= __builtin_clzll(pieces);
             }
         }
     }
@@ -1017,13 +1006,18 @@ moveType_t *ConvertStringToMove(ChessBoard* cb, std::string str)
         {
             move->moveVal = MOVE_VALID;
 
+            std::cout << "WP " << cb->GetPiece(WHITE_PAWN) << std::endl;
+            std::cout << "IX " << (1 << (move->endIdx - 16)) << std::endl;
+            std::cout << "R " << (cb->GetPiece(WHITE_PAWN) & (1 << (move->endIdx - 16))) << std::endl;
+
+
             // Since we aren't a capture, we either moves one or two squares
-            if(cb->GetPiece(WHITE_PAWN) & (1 << (move->endIdx - 8)) > 0)
+            if((cb->GetPiece(WHITE_PAWN) & (1 << (move->endIdx - 8))) > 0)
             {
                 move->startIdx = move->endIdx - 8;
             }
             // Two squares
-            else if(cb->GetPiece(WHITE_PAWN) & (1 << (move->endIdx - 16)) > 0)
+            else if((cb->GetPiece(WHITE_PAWN) & (1 << (move->endIdx - 16))) > 0)
             {
                 move->startIdx = move->endIdx - 16;
             }
@@ -1066,28 +1060,28 @@ moveType_t *ConvertStringToMove(ChessBoard* cb, std::string str)
         // if number
         if(str[1] - '0' < 8)
         {
-            move->startIdx = __builtin_clz(cb->GetPiece(move->pt) & (0xFF << (str[1] - '0')*8));
+            move->startIdx = __builtin_ctzll(cb->GetPiece(move->pt) & (0xFF << (str[1] - '0')*8));
         }
         // else if lower case letter
         else if(str[1] - 'a' < 8)
         {
             idxToFind = cb->GetPiece(move->pt);
-            while(__builtin_clz(idxToFind) % 8 != str[1] - 'a')
+            while(__builtin_ctzll(idxToFind) % 8 != str[1] - 'a')
             {
-                idxToFind ^= (1 << __builtin_clz(idxToFind));
+                idxToFind ^= (1 << __builtin_ctzll(idxToFind));
             }
-            move->startIdx = 1 << __builtin_clz(idxToFind);
+            move->startIdx = 1 << __builtin_ctzll(idxToFind);
         }
         else
         {
             // otherwise we need to find our start location. We know there wouldn't have been
             // additional info in the move string iff there was only one piece that could make that move
             idxToFind = cb->GetPiece(move->pt);
-            while(!cb->IsValidMove(move->pt, __builtin_clz(idxToFind), move->endIdx))
+            while(!cb->IsValidMove(move->pt, __builtin_ctzll(idxToFind), move->endIdx))
             {
-                idxToFind ^= (1 << __builtin_clz(idxToFind));
+                idxToFind ^= (1 << __builtin_ctzll(idxToFind));
             }
-            move->startIdx = __builtin_clz(idxToFind);
+            move->startIdx = __builtin_ctzll(idxToFind);
         }
     }
 
@@ -1350,8 +1344,9 @@ std::string ConvertMoveToString(ChessBoard *cb, moveType_t *move)
  *  
  * 1) Accept opponent input and interpret
  * 
- * 2) Search for best move and provide response
+ * 2) Search for best move and generate response
  * 
+ * 3) Send response to player
  */
 void PlayGame(void)
 {

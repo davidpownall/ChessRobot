@@ -31,7 +31,7 @@ int main()
     std::cout << "Creating the board representation" << std::endl;
     std::cout << "Status: " << status << std::endl;
 
-
+    PlayGame();
     while(1)
     {
         ;
