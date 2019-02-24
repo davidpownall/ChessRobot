@@ -31,6 +31,7 @@ ChessBoard::ChessBoard(void)
     this->pieces[WHITE_BISHOP]  = WHITE_BISHOP_START;
     this->pieces[WHITE_QUEEN]   = WHITE_QUEEN_START;
     this->pieces[WHITE_KING]    = WHITE_KING_START;
+    this->pieces[WHITE_PIECES]  = 0;
 
     this->pieces[BLACK_PAWN]    = BLACK_PAWN_START;
     this->pieces[BLACK_ROOK]    = BLACK_ROOK_START;
@@ -38,6 +39,7 @@ ChessBoard::ChessBoard(void)
     this->pieces[BLACK_BISHOP]  = BLACK_BISHOP_START;
     this->pieces[BLACK_QUEEN]   = BLACK_QUEEN_START;
     this->pieces[BLACK_KING]    = BLACK_KING_START;
+    this->pieces[BLACK_PIECES]  = 0;
 
     for(pt = 0; pt < NUM_PIECE_TYPES; ++pt)
     {
@@ -126,11 +128,11 @@ moveType_t *ChessBoard::GenerateMoves(uint8_t pt)
 
         // Generate possible plays for black
         GeneratePawnMoves(BLACK_PAWN, &moveList);
-        GenerateRookMoves(BLACK_ROOK, &moveList);
-        GenerateBishopMoves(BLACK_BISHOP, &moveList);
-        GenerateKnightMoves(BLACK_KNIGHT, &moveList);
-        GenerateQueenMoves(BLACK_QUEEN, &moveList);
-        GenerateKingMoves(BLACK_KING, &moveList);
+        //GenerateRookMoves(BLACK_ROOK, &moveList);
+        //GenerateBishopMoves(BLACK_BISHOP, &moveList);
+        //GenerateKnightMoves(BLACK_KNIGHT, &moveList);
+        //GenerateQueenMoves(BLACK_QUEEN, &moveList);
+        //GenerateKingMoves(BLACK_KING, &moveList);
     }
     else
     {
