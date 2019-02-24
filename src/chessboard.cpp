@@ -51,7 +51,9 @@ ChessBoard::ChessBoard(void)
         }
         this->occupied |= this->pieces[pt];
     }
-    this->empty = ~(this->occupied);
+
+    this->occupied = BOARD_START_USED;
+    this->empty = BOARD_START_EMPTY;
 
     this->searchDepth = 0;
 
@@ -881,11 +883,11 @@ void ChessBoard::BuildMove(uint8_t pt, uint8_t startIdx, uint8_t endIdx, uint8_t
     // check for this rather simply. They key is that checkmate must be detected from 
     // our turn, not the response move
 
-    if((pt < NUM_PIECE_TYPES/2 && (1 << endIdx) & this->pieces[BLACK_KING] != 0)
-        || (pt >= NUM_PIECE_TYPES/2 && (1 << endIdx) & this->pieces[WHITE_KING] != 0))
-    {
-        legalMove = false;
-    }
+    //if((pt < NUM_PIECE_TYPES/2 && (((uint64_t) 1 << endIdx) & this->pieces[BLACK_KING] != 0))
+    //    || (pt >= NUM_PIECE_TYPES/2 && (((uint64_t) 1 << endIdx) & this->pieces[WHITE_KING] != 0)))
+    //{
+    //    legalMove = false;
+    //}
 
     newMove = new moveType_t;
     Util_Assert(newMove != NULL, "Failed to allocate memory for new move!");
