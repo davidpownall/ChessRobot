@@ -6,7 +6,7 @@
 static ChessBoard *cb;
 static moveType_t *globalBestMove;
 
-#define SEARCH_DEPTH 5
+#define SEARCH_DEPTH 1
 
 /**
  * Default constructor for the ChessBoard class. Creates a fresh board
@@ -97,9 +97,13 @@ ChessBoard::ChessBoard(uint64_t *pieces, uint64_t occupied, uint64_t searchDepth
  */
 moveType_t *ChessBoard::GenerateMoves(uint8_t pt)
 {
-    moveType_t *moveList;
     uint8_t nextPt;
     uint64_t i = 1;
+    moveType_t *moveList = new moveType_t;
+
+    // Use a known invalid move as a end marker
+    Util_Assert(moveList != NULL, "Failed to allocate memory for a move");
+    moveList->legalMove = false;
 
     if(pt == WHITE_PIECES)
     {
@@ -163,7 +167,7 @@ int64_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize, moveType_
     if(playerToMaximize)
     {
         score = -1000000000000000;
-        while(moveToEvaluate != NULL)
+        while(moveToEvaluate != NULL && moveToEvaluate->legalMove)
         {
             numMoves++;
             this->ApplyMoveToBoard(moveToEvaluate);
@@ -184,7 +188,7 @@ int64_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize, moveType_
     else
     {
         score = 1000000000000000;
-        while(moveToEvaluate != NULL)
+        while(moveToEvaluate != NULL && moveToEvaluate->legalMove)
         {
             numMoves++;
             this->ApplyMoveToBoard(moveToEvaluate);
@@ -999,7 +1003,7 @@ moveType_t *ChessBoard::GetNextMove(uint8_t pt)
 moveType_t *ConvertStringToMove(ChessBoard* cb, std::string str)
 {
     moveType_t *move;
-    uint64_t idxToFind;
+    uint64_t idxToFind, mask, count;
     
     Util_Assert(cb != NULL, "Was passed a bad chessboard");
     Util_Assert(!str.empty(), "Was passed empty string");
@@ -1031,25 +1035,30 @@ moveType_t *ConvertStringToMove(ChessBoard* cb, std::string str)
         {
             move->moveVal = MOVE_VALID;
 
-            std::cout << "WP " << cb->GetPiece(WHITE_PAWN) << std::endl;
-            std::cout << "IX " << ((uint64_t) 1 << (move->endIdx - 16)) << std::endl;
-            std::cout << "R " << (cb->GetPiece(WHITE_PAWN) & ((uint64_t) 1 << (move->endIdx - 16))) << std::endl;
+            // Pawn has to move forward, therefore find current index
+            mask = cb->GetPiece(WHITE_PAWN) & (((uint64_t) COLUMN_MASK) << (str[str.length() - 2] - 'a'));
+            mask ^= (uint64_t) 1 << move->endIdx;
 
+            count = 1;
 
-            // Since we aren't a capture, we either moves one or two squares
-            if((cb->GetPiece(WHITE_PAWN) & ((uint64_t) 1 << (move->endIdx - 8))) > 0)
+            // We now are looking two possibilities
+            while(mask > 0 && count <= 2)
             {
-                move->startIdx = move->endIdx - 8;
+                if((cb->GetPiece(WHITE_PAWN) & ((uint64_t) 1 << (move->endIdx - 8*count))) > 0)
+                {
+                    // Are we in the fourth row
+                    if(count == 2 && move->endIdx/8 != 3)
+                    {
+                        count++;
+                        break;
+                    }
+                    move->startIdx = (move->endIdx - 8*count);
+                    break;
+                }
+                count++;
             }
-            // Two squares
-            else if((cb->GetPiece(WHITE_PAWN) & ((uint64_t) 1 << (move->endIdx - 16))) > 0)
-            {
-                move->startIdx = move->endIdx - 16;
-            }
-            else
-            {
-                Util_Assert(0, "Invalid incoming pawn move");
-            }
+
+            Util_Assert(count <= 2, "Invalid incoming pawn move");
         }
     }
     else
@@ -1389,10 +1398,10 @@ void PlayGame(void)
     while(true)
     {
         // State 1
-        while(str.empty())
-        {
-            std::cin >> str;
-        }
+
+        str.clear();
+        std::cout << "Please enter move: ";
+        std::cin >> str;
         tempMove = ConvertStringToMove(cb, str);
 
         Util_Assert(tempMove != NULL, "Received bad move!");
@@ -1404,7 +1413,11 @@ void PlayGame(void)
         cb->GetBestMove(SEARCH_DEPTH, false, ourMoves);
         selectedMove = *globalBestMove;
 
-        while(ourMoves != NULL)
+        // Actually apply our chosen move to the board
+        cb->ApplyMoveToBoard(globalBestMove);
+
+        // Cleanup
+        while(ourMoves != NULL && ourMoves->legalMove)
         {
             tempMove = ourMoves->adjMove;
             delete ourMoves;
