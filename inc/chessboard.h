@@ -40,7 +40,7 @@
 #define MOVE_VALID_CASTLE_QUEEN 0x8
 #define MOVE_VALID_CHECK        0x10
 #define MOVE_VALID_MATE         0x20
-
+#define MOVE_VALID_UNDO         0x40
 
 #define WHITE_PAWN 0x0
 #define WHITE_ROOK 0x1
@@ -69,9 +69,10 @@ typedef struct moveType_s
     uint32_t startIdx: 6; // Start index of our move
     uint32_t endIdx: 6; // End index of our move
     uint32_t pt: 4; // What piece type we are moving
-    uint32_t moveVal: 6; // What type of move this is
+    uint32_t ptCaptured: 4; // What piece type we captured, if any
+    uint32_t moveVal: 7; // What type of move this is
     uint32_t legalMove: 1; // Is this move actually legal
-    uint32_t reserved: 9;
+    uint32_t reserved: 4;
 
     // Another 4 bytes of padding will be added by the compiler
 
@@ -86,11 +87,9 @@ private:
 
     /* Union of all bitboards */
     uint64_t occupied;
-    uint64_t prevOccupied;
 
     /* Positions of all empty squares */
     uint64_t empty;
-    uint64_t prevEmpty;
 
     // The current value of the chessboard
     //      Positive = white's advantage
@@ -134,7 +133,7 @@ public:
     moveType_t *GetNextMove(uint8_t pt);
     void BuildMove(uint8_t pt, uint8_t startIdx, uint8_t endIdx, uint8_t moveVal, moveType_t **moveList);
     uint64_t ApplyMoveToBoard(moveType_t *moveToApply);
-    uint64_t UndoMoveFromBoard(void);
+    uint64_t UndoMoveFromBoard(moveType_t *moveToUndo);
 
     static bool IsValidRookMove(ChessBoard *cb, uint8_t idxToFind, uint8_t endIdx);
     static bool IsValidKnightMove(uint8_t idxToFind, uint8_t endIdx);

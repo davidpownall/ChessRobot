@@ -51,12 +51,7 @@ ChessBoard::ChessBoard(void)
     this->searchDepth = 0;
 
     // Value is 0 at game start
-    this->value = 0;
-
-    // It is not possible for two subsequent chessboard states
-    // to have the exact same bits set, so we can use this to
-    // denote if we are on the first move
-    this->prevOccupied = this->occupied;
+    this->value = EvaluateCurrentBoardValue(this);
 
 }
 
@@ -185,11 +180,11 @@ int64_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize, moveType_
             {
                 globalBestMove = moveToEvaluate;
             }
-            this->UndoMoveFromBoard();
-            tempMove = moveToEvaluate->adjMove;
+            this->UndoMoveFromBoard(moveToEvaluate);
+            moveToEvaluate = moveToEvaluate->adjMove;
 
             //delete moveToEvaluate;
-            moveToEvaluate = tempMove;
+            //moveToEvaluate = tempMove;
         }
     }
     else
@@ -213,11 +208,11 @@ int64_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize, moveType_
                 globalBestMove = moveToEvaluate;
             }
 
-            this->UndoMoveFromBoard();
-            tempMove = moveToEvaluate->adjMove;
-            
+            this->UndoMoveFromBoard(moveToEvaluate);
+            moveToEvaluate = moveToEvaluate->adjMove;
+        
             //delete moveToEvaluate;
-            moveToEvaluate = tempMove;
+            //moveToEvaluate = tempMove;
         }
     }
     return score;
@@ -292,10 +287,6 @@ uint64_t ChessBoard::ApplyMoveToBoard(moveType_t *moveToApply)
         return STATUS_FAIL;
     }
 
-    memcpy(this->prevPieces, this->pieces, sizeof(uint64_t) * (NUM_PIECE_TYPES + 2));
-    this->prevEmpty = this->empty;
-    this->prevOccupied = this->occupied;
-
     // Apply the move for our piece type
     this->pieces[moveToApply->pt] ^= ((uint64_t) 1 << moveToApply->startIdx);
     this->pieces[moveToApply->pt] |= ((uint64_t) 1 << moveToApply->endIdx);
@@ -304,16 +295,41 @@ uint64_t ChessBoard::ApplyMoveToBoard(moveType_t *moveToApply)
     this->pieces[friendlyPieces] ^= ((uint64_t) 1 << moveToApply->startIdx);
     this->pieces[friendlyPieces] |= ((uint64_t) 1 << moveToApply->endIdx);
 
-    // If we are taking a piece, clear that square
-    this->pieces[enemyPieces] &= ~((uint64_t) 1 << moveToApply->endIdx);
-    for(uint8_t i = enemyStart; i < enemyStart + NUM_PIECE_TYPES/2; ++i) // @todo bug here find it
+    if((moveToApply->moveVal & MOVE_VALID_ATTACK) != 0)
     {
-        this->pieces[i] &= ~((uint64_t) 1 << moveToApply->endIdx);
+        // If we are taking a piece, clear that square
+        this->pieces[enemyPieces] &= ~((uint64_t) 1 << moveToApply->endIdx);
+        for(uint8_t i = enemyStart; i < enemyStart + NUM_PIECE_TYPES/2; ++i) // @todo bug here find it
+        {
+            // We can only have at most 1 piece captured for a move
+            if((this->pieces[i] & ~((uint64_t) 1 << moveToApply->endIdx)) != 0)
+            {
+                moveToApply->ptCaptured = i;
+                this->pieces[i] &= ~((uint64_t) 1 << moveToApply->endIdx);
+                break;
+            }
+        }
+    }
+    else if(((moveToApply->moveVal & MOVE_VALID_UNDO) != 0) && moveToApply->ptCaptured < NUM_PIECE_TYPES)
+    {
+        Util_Assert((moveToApply->ptCaptured >= enemyStart)
+             && (moveToApply->ptCaptured < enemyStart + NUM_PIECE_TYPES/2),
+             "Passed in bad captured piece type when attempting to undo the move");
+
+        // return our board state
+        this->pieces[enemyPieces] |= ((uint64_t) 1 << moveToApply->startIdx);
+        this->pieces[moveToApply->ptCaptured] |= ((uint64_t) 1 << moveToApply->startIdx);
     }
 
     // Ancillary bitboards also need to be updated
-    this->occupied &= ~((uint64_t) 1 << moveToApply->startIdx);
+    if(moveToApply->moveVal != MOVE_VALID_UNDO)
+    {   
+        this->occupied &= ~((uint64_t) 1 << moveToApply->startIdx);
+    }
     this->occupied |= ((uint64_t) 1 << moveToApply->endIdx);
+
+    Util_Assert((this->pieces[BLACK_PIECES] & this->pieces[WHITE_PIECES]) == 0,
+        "Pieces cannot overlap on the same spot");
 
     // Move is now applied 
 
@@ -329,18 +345,23 @@ uint64_t ChessBoard::ApplyMoveToBoard(moveType_t *moveToApply)
  * 
  * @returns STATUS_SUCCESS if successful, STATUS_FAIL otherwise
  */
-uint64_t ChessBoard::UndoMoveFromBoard(void)
+uint64_t ChessBoard::UndoMoveFromBoard(moveType_t *moveToUndo)
 {
-    if(this->occupied == this->prevOccupied)
-    {
-        std::cout << "Tried to undo first move from board!" << std::endl;
-        return STATUS_FAIL;
-    }
+    uint8_t idx, moveValCached;
 
-    memcpy(this->pieces, this->prevPieces, sizeof(uint64_t) * (NUM_PIECE_TYPES + 2));
-    this->empty = this->prevEmpty;
-    this->occupied = this->prevOccupied;
-    this->value = this->prevValue;
+    idx = moveToUndo->endIdx;
+    moveToUndo->endIdx = moveToUndo->startIdx;
+    moveToUndo->startIdx = idx;
+
+    moveValCached = moveToUndo->moveVal;
+    moveToUndo->moveVal = MOVE_VALID_UNDO;
+
+    ApplyMoveToBoard(moveToUndo);
+
+    idx = moveToUndo->endIdx;
+    moveToUndo->endIdx = moveToUndo->startIdx;
+    moveToUndo->startIdx = idx;
+    moveToUndo->moveVal = moveValCached;
 
     return STATUS_SUCCESS;
 
@@ -380,12 +401,6 @@ void ChessBoard::GeneratePawnMoves(uint8_t pt, moveType_t **moveList)
             pawn = ((uint64_t) 1 << i);
             pawns ^= pawn;
 
-            // There are no pawns of our color at this location
-            if(pawns & pawn == 0)
-            {
-                continue;
-            }
-
             // So now we have the location of our first available pawn, we need to check moves
 
             // Move forward one square
@@ -396,20 +411,20 @@ void ChessBoard::GeneratePawnMoves(uint8_t pt, moveType_t **moveList)
                 this->BuildMove(WHITE_PAWN, __builtin_ctzll(pawn), i + 8, MOVE_VALID, moveList);
                 
                 if( i < 16 
-                    && (this->pieces[WHITE_PIECES] & (pawn << 8)) == 0
-                    && (this->pieces[BLACK_PIECES] & (pawn << 8)) == 0)
+                    && (this->pieces[WHITE_PIECES] & (pawn << 16)) == 0
+                    && (this->pieces[BLACK_PIECES] & (pawn << 16)) == 0)
                 {
                     this->BuildMove(WHITE_PAWN, __builtin_ctzll(pawn), i + 16, MOVE_VALID, moveList);
                 }
             } 
 
             // Move left-diagonal to attack
-            if( (i % 8 != 0) && (this->pieces[BLACK_PIECES] & (pawn << 7)) == 1)
+            if( (i % 8 != 0) && (this->pieces[BLACK_PIECES] & (pawn << 7)) != 0)
             {
                 this->BuildMove(WHITE_PAWN, __builtin_ctzll(pawn), i + 7, MOVE_VALID, moveList);
             }
 
-            if( (i % 8 != 7) && (this->pieces[BLACK_PIECES] & (pawn << 9)) == 1)
+            if( (i % 8 != 7) && (this->pieces[BLACK_PIECES] & (pawn << 9)) != 0)
             {
                 this->BuildMove(WHITE_PAWN, __builtin_ctzll(pawn), i + 9, MOVE_VALID, moveList), moveList;
             }
@@ -455,20 +470,20 @@ void ChessBoard::GeneratePawnMoves(uint8_t pt, moveType_t **moveList)
                 this->BuildMove(BLACK_PAWN, i, i - 8, MOVE_VALID, moveList);
                 
                 if( i >= 48 
-                    && (this->pieces[WHITE_PIECES] & (pawn >> 8)) == 0
-                    && (this->pieces[BLACK_PIECES] & (pawn >> 8)) == 0)
+                    && (this->pieces[WHITE_PIECES] & (pawn >> 16)) == 0
+                    && (this->pieces[BLACK_PIECES] & (pawn >> 16)) == 0)
                 {
                     this->BuildMove(BLACK_PAWN, __builtin_ctzll(pawn), i - 16, MOVE_VALID, moveList);
                 }
             } 
 
             // Move left-diagonal to attack
-            if( (i % 8 != 7) && (this->pieces[BLACK_PIECES] & (pawn >> 9)) == 1)
+            if( (i % 8 != 7) && ((this->pieces[WHITE_PIECES] & (pawn >> 9)) != 0))
             {
                 this->BuildMove(BLACK_PAWN, __builtin_ctzll(pawn), i - 9, MOVE_VALID_ATTACK, moveList);
             }
 
-            if( (i % 8 != 0) && (this->pieces[BLACK_PIECES] & (pawn >> 7)) == 1)
+            if( (i % 8 != 0) && ((this->pieces[WHITE_PIECES] & (pawn >> 7)) != 0))
             {
                 this->BuildMove(BLACK_PAWN, __builtin_ctzll(pawn), i - 7, MOVE_VALID_ATTACK, moveList);
             }
@@ -913,7 +928,10 @@ void ChessBoard::BuildMove(uint8_t pt, uint8_t startIdx, uint8_t endIdx, uint8_t
 
     moveType_t *newMove, *lastMove;
     bool legalMove = true;
+    uint8_t friendlyPieces;
+    (pt >= NUM_PIECE_TYPES/2) ? friendlyPieces = BLACK_PIECES : friendlyPieces = WHITE_PIECES;
 
+    //Util_Assert(moveVal != MOVE_INVALID, "Tried to build an invalid move");
     if(moveVal == MOVE_INVALID)
     {
         return;
@@ -923,6 +941,9 @@ void ChessBoard::BuildMove(uint8_t pt, uint8_t startIdx, uint8_t endIdx, uint8_t
 
     Util_Assert(startIdx < NUM_BOARD_INDICIES && endIdx < NUM_BOARD_INDICIES
         && startIdx != endIdx, "Invalid indicies provided for move");
+
+    Util_Assert((this->pieces[friendlyPieces] & ((uint64_t) 1 << endIdx)) == 0,
+        "There was a friendly piece where we wanted to move!");
 
     // Now for an interesting quirk. If we have detected that we can actually directly attack
     // the king of our enemy, we actually know that the previous move that got us here is
@@ -949,26 +970,12 @@ void ChessBoard::BuildMove(uint8_t pt, uint8_t startIdx, uint8_t endIdx, uint8_t
     newMove->moveVal = moveVal;
 
     newMove->legalMove = legalMove;
+    // Add this move to the list of possible moves at this board position
+    newMove->adjMove = *moveList;
+    newMove->ptCaptured = 0xF;
 
-    if(legalMove)
-    {
-        // Add this move to the list of possible moves at this board position
-        newMove->adjMove = *moveList;
-        *moveList = newMove;
+    *moveList = newMove;
 
-    }
-    else
-    {
-        //lastMove = GetLastMove();
-        //if(lastMove == NULL)
-        //{
-
-        //}
-
-        // If this move was illegal, then the last move HAS to be illegal
-        //lastMove = GetLastMove;
-        lastMove->legalMove = false;
-    }
 }
 
 int64_t ChessBoard::EvaluateCurrentBoardValue(ChessBoard *cb)
