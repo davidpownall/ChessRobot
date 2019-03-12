@@ -6,7 +6,7 @@
 static ChessBoard *cb;
 static moveType_t *globalBestMove;
 
-#define SEARCH_DEPTH 1
+#define SEARCH_DEPTH 7
 
 /**
  * Default constructor for the ChessBoard class. Creates a fresh board
@@ -153,7 +153,7 @@ int64_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize, moveType_
     moveType_t *moveToEvaluate, *movesToEvaluateAtNextDepth, *tempMove;
     bool evaluationNeeded = depth > 1;
 
-    std::cout << "Assessing depth: " << depth << " for " << playerToMaximize << std::endl;
+    //std::cout << "Assessing depth: " << depth << " for " << playerToMaximize << std::endl;
     if(depth == 0)
     {
         return -EvaluateCurrentBoardValue(this);
@@ -176,7 +176,7 @@ int64_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize, moveType_
 
             savedScore = score;
             score = std::max(score, this->GetBestMove(depth - 1, !playerToMaximize, movesToEvaluateAtNextDepth));
-            if(depth == SEARCH_DEPTH)
+            if(depth == SEARCH_DEPTH && score >= savedScore)
             {
                 globalBestMove = moveToEvaluate;
             }
@@ -203,7 +203,7 @@ int64_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize, moveType_
             
             savedScore = score;
             score = std::min(score, this->GetBestMove(depth - 1, !playerToMaximize, movesToEvaluateAtNextDepth));
-            if(depth == SEARCH_DEPTH && score < savedScore)
+            if(depth == SEARCH_DEPTH && score <= savedScore)
             {
                 globalBestMove = moveToEvaluate;
             }
@@ -421,12 +421,12 @@ void ChessBoard::GeneratePawnMoves(uint8_t pt, moveType_t **moveList)
             // Move left-diagonal to attack
             if( (i % 8 != 0) && (this->pieces[BLACK_PIECES] & (pawn << 7)) != 0)
             {
-                this->BuildMove(WHITE_PAWN, __builtin_ctzll(pawn), i + 7, MOVE_VALID, moveList);
+                this->BuildMove(WHITE_PAWN, __builtin_ctzll(pawn), i + 7, MOVE_VALID_ATTACK, moveList);
             }
 
             if( (i % 8 != 7) && (this->pieces[BLACK_PIECES] & (pawn << 9)) != 0)
             {
-                this->BuildMove(WHITE_PAWN, __builtin_ctzll(pawn), i + 9, MOVE_VALID, moveList), moveList;
+                this->BuildMove(WHITE_PAWN, __builtin_ctzll(pawn), i + 9, MOVE_VALID_ATTACK, moveList), moveList;
             }
 
             // En passant check
@@ -550,14 +550,17 @@ void ChessBoard::GenerateRookMoves(uint8_t pt, moveType_t **moveList)
                 break;
             }
 
-            temp -= 1;
+            --temp;
             moveVal = this->CheckSpaceForMoveOrAttack(temp, enemyPieces);
+            
             if(moveVal == MOVE_INVALID)
             {
                 break;
             }
 
             this->BuildMove(pt, rookIdx, temp, moveVal, moveList);
+
+            // Cannot move/attack through other pieces
             if(moveVal == MOVE_VALID_ATTACK)
             {
                 break;
@@ -568,13 +571,13 @@ void ChessBoard::GenerateRookMoves(uint8_t pt, moveType_t **moveList)
         temp = rookIdx;
         do
         {
-            // on the left side of the board, can't go that way
+            // on the right side of the board, can't go that way
             if(rookIdx % 8 == 7)
             {
                 break;
             }
 
-            temp += 1;
+            ++temp;
             moveVal = this->CheckSpaceForMoveOrAttack(temp, enemyPieces);
             if(moveVal == MOVE_INVALID)
             {
@@ -582,6 +585,8 @@ void ChessBoard::GenerateRookMoves(uint8_t pt, moveType_t **moveList)
             }
 
             this->BuildMove(pt, rookIdx, temp, moveVal, moveList);
+
+            // Cannot move/attack through other pieces
             if(moveVal == MOVE_VALID_ATTACK)
             {
                 break;
@@ -592,7 +597,7 @@ void ChessBoard::GenerateRookMoves(uint8_t pt, moveType_t **moveList)
         temp = rookIdx;
         do
         {
-            // Can we go down
+            // Cannot go down
             if(rookIdx < 8)
             {
                 break;
@@ -606,6 +611,8 @@ void ChessBoard::GenerateRookMoves(uint8_t pt, moveType_t **moveList)
             }
 
             this->BuildMove(pt, rookIdx, temp, moveVal, moveList);
+
+            // Cannot move/attack through other pieces
             if(moveVal == MOVE_VALID_ATTACK)
             {
                 break;
@@ -616,7 +623,7 @@ void ChessBoard::GenerateRookMoves(uint8_t pt, moveType_t **moveList)
         temp = rookIdx;
         do
         {
-            // on the left side of the board, can't go that way
+            // Cannot go up
             if(rookIdx > 54)
             {
                 break;
@@ -630,6 +637,8 @@ void ChessBoard::GenerateRookMoves(uint8_t pt, moveType_t **moveList)
             }
 
             this->BuildMove(pt, rookIdx, temp, moveVal, moveList);
+        
+            // Cannot move/attack through other pieces
             if(moveVal == MOVE_VALID_ATTACK)
             {
                 break;
@@ -662,6 +671,7 @@ void ChessBoard::GenerateBishopMoves(uint8_t pt, moveType_t **moveList)
         temp = bishopIdx;
         do
         {
+            // Either left column or bottom row
             if(temp % 8 == 0 || temp < 8)
             {
                 break;
@@ -685,6 +695,7 @@ void ChessBoard::GenerateBishopMoves(uint8_t pt, moveType_t **moveList)
         temp = bishopIdx;
         do
         {
+            // Either right column or bottom row
             if(temp % 8 == 7 || temp < 8)
             {
                 break;
@@ -708,7 +719,8 @@ void ChessBoard::GenerateBishopMoves(uint8_t pt, moveType_t **moveList)
         temp = bishopIdx;
         do
         {
-            if(temp % 8 == 0 || temp >= 54)
+            // Either left column or top row
+            if(temp % 8 == 0 || temp > 55)
             {
                 break;
             }
@@ -725,13 +737,13 @@ void ChessBoard::GenerateBishopMoves(uint8_t pt, moveType_t **moveList)
             {
                 break;
             }
-        } while(temp > 0);
+        } while(temp < NUM_BOARD_INDICIES);
 
         // Up right
         temp = bishopIdx;
         do
         {
-            if(temp % 8 == 7 || temp >= 54)
+            if(temp % 8 == 7 || temp > 55)
             {
                 break;
             }
@@ -748,7 +760,7 @@ void ChessBoard::GenerateBishopMoves(uint8_t pt, moveType_t **moveList)
             {
                 break;
             }
-        } while(temp > 0);
+        } while(temp < NUM_BOARD_INDICIES);
     }
 }
 
@@ -763,9 +775,6 @@ void ChessBoard::GenerateKnightMoves(uint8_t pt, moveType_t **moveList)
 {
     // Knights can move two squares horizontally and one vertically, or
     // two squares vertically and one horizontally.
-
-    // 6 up, 10 up, 15 up, 17 up
-    // 6 down, 10 down, 15 down, 17 down
 
     uint8_t moveVal;
     uint8_t enemyPieces;
@@ -791,31 +800,44 @@ void ChessBoard::GenerateKnightMoves(uint8_t pt, moveType_t **moveList)
             if(knightIdx % 8 > 0)
             {
                 moveVal = this->CheckSpaceForMoveOrAttack(knightIdx + 15, enemyPieces);
-                this->BuildMove(pt, knightIdx, knightIdx + 15, moveVal, moveList);
+                if(moveVal != MOVE_INVALID)
+                {
+                    this->BuildMove(pt, knightIdx, knightIdx + 15, moveVal, moveList);
+                }
                 
             }
             // Can we move right
             if(knightIdx % 8 < 7)
             {
                 moveVal = this->CheckSpaceForMoveOrAttack(knightIdx + 17, enemyPieces);
-                this->BuildMove(pt, knightIdx, knightIdx + 17, moveVal, moveList);
+                if(moveVal != MOVE_INVALID)
+                {
+                    this->BuildMove(pt, knightIdx, knightIdx + 17, moveVal, moveList);
+                }
             }
         }
 
         // Assess downwards vertical moves
-        if(knightIdx > 16)
+        if(knightIdx >= 16)
         {
             // Can we move left
             if(knightIdx % 8 > 0)
             {
                 moveVal = this->CheckSpaceForMoveOrAttack(knightIdx - 17, enemyPieces);
-                this->BuildMove(pt, knightIdx, knightIdx - 17, moveVal, moveList);
+
+                if(moveVal != MOVE_INVALID)
+                {
+                    this->BuildMove(pt, knightIdx, knightIdx - 17, moveVal, moveList);
+                }
             }
             // Can we move right
             if(knightIdx % 8 < 7)
             {
                 moveVal = this->CheckSpaceForMoveOrAttack(knightIdx - 15, enemyPieces);
-                this->BuildMove(pt, knightIdx, knightIdx - 15, moveVal, moveList);
+                if(moveVal != MOVE_INVALID)
+                {
+                    this->BuildMove(pt, knightIdx, knightIdx - 15, moveVal, moveList);
+                }
             }            
         }
 
@@ -823,16 +845,22 @@ void ChessBoard::GenerateKnightMoves(uint8_t pt, moveType_t **moveList)
         if(knightIdx % 8 > 1)
         {
             // Can we move up
-            if(knightIdx < 54)
+            if(knightIdx < NUM_BOARD_INDICIES - 8)
             {
                 moveVal = this->CheckSpaceForMoveOrAttack(knightIdx + 6, enemyPieces);
-                this->BuildMove(pt, knightIdx, knightIdx + 6, moveVal, moveList);
+                if(moveVal != MOVE_INVALID)
+                {
+                    this->BuildMove(pt, knightIdx, knightIdx + 6, moveVal, moveList);
+                }
             }
             // Can we move down
             if(knightIdx >= 8)
             {
                 moveVal = this->CheckSpaceForMoveOrAttack(knightIdx - 10, enemyPieces);
-                this->BuildMove(pt, knightIdx, knightIdx - 10, moveVal, moveList);
+                if(moveVal != MOVE_INVALID)
+                {
+                    this->BuildMove(pt, knightIdx, knightIdx - 10, moveVal, moveList);
+                }
             }
         }
 
@@ -840,16 +868,22 @@ void ChessBoard::GenerateKnightMoves(uint8_t pt, moveType_t **moveList)
         if(knightIdx % 8 < 6)
         {
             // Can we move up
-            if(knightIdx < 54)
+            if(knightIdx < NUM_BOARD_INDICIES - 8)
             {
                 moveVal = this->CheckSpaceForMoveOrAttack(knightIdx + 10, enemyPieces);
-                this->BuildMove(pt, knightIdx, knightIdx + 10, moveVal, moveList);
+                if(moveVal != MOVE_INVALID)
+                {
+                    this->BuildMove(pt, knightIdx, knightIdx + 10, moveVal, moveList);
+                }
             }
             // Can we move down
             if(knightIdx >= 8)
             {
                 moveVal = this->CheckSpaceForMoveOrAttack(knightIdx - 6, enemyPieces);
-                this->BuildMove(pt, knightIdx, knightIdx - 6, moveVal, moveList);           
+                if(moveVal != MOVE_INVALID)
+                {
+                    this->BuildMove(pt, knightIdx, knightIdx - 6, moveVal, moveList);           
+                }
             }
         }
     }
@@ -928,8 +962,10 @@ void ChessBoard::BuildMove(uint8_t pt, uint8_t startIdx, uint8_t endIdx, uint8_t
 
     moveType_t *newMove, *lastMove;
     bool legalMove = true;
-    uint8_t friendlyPieces;
+    uint8_t friendlyPieces, enemyPieces;
     (pt >= NUM_PIECE_TYPES/2) ? friendlyPieces = BLACK_PIECES : friendlyPieces = WHITE_PIECES;
+    (pt >= NUM_PIECE_TYPES/2) ? enemyPieces = WHITE_PIECES : enemyPieces = BLACK_PIECES;
+
 
     //Util_Assert(moveVal != MOVE_INVALID, "Tried to build an invalid move");
     if(moveVal == MOVE_INVALID)
@@ -944,6 +980,16 @@ void ChessBoard::BuildMove(uint8_t pt, uint8_t startIdx, uint8_t endIdx, uint8_t
 
     Util_Assert((this->pieces[friendlyPieces] & ((uint64_t) 1 << endIdx)) == 0,
         "There was a friendly piece where we wanted to move!");
+
+    if((moveVal & MOVE_VALID_ATTACK) > 0)
+    {
+        Util_Assert(((this->pieces[enemyPieces] & ((uint64_t) 1 << endIdx)) != 0), "Invalid attack move");
+    }
+
+    if((moveVal & MOVE_VALID) > 0)
+    {
+        Util_Assert(((this->pieces[enemyPieces] & ((uint64_t) 1 << endIdx)) == 0), "Invalid move");
+    }
 
     // Now for an interesting quirk. If we have detected that we can actually directly attack
     // the king of our enemy, we actually know that the previous move that got us here is
@@ -1437,6 +1483,9 @@ void PlayGame(void)
 
         // State 2
         cb->GetBestMove(SEARCH_DEPTH, false, ourMoves);
+
+        Util_Assert(globalBestMove != NULL, "Failed to find valid move!");
+
         selectedMove = *globalBestMove;
 
         // Actually apply our chosen move to the board
@@ -1451,6 +1500,8 @@ void PlayGame(void)
         }
 
         // State 3
+        std::cout << "Examined " << numMoves << " moves during search" << std::endl;
+        numMoves = 0;
         std::cout << "Response:" << ConvertMoveToString(cb, &selectedMove) << std::endl;
     }
 }
