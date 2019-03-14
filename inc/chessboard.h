@@ -99,9 +99,6 @@ private:
 
     uint64_t threatMap;
 
-    uint64_t searchDepth;
-
-
 public:
 
     ChessBoard(void);
@@ -141,7 +138,7 @@ public:
     static bool IsValidQueenMove(ChessBoard *cb, uint8_t idxToFind, uint8_t endIdx);
     bool IsValidMove(uint8_t pt, uint8_t idxToFind, uint8_t endIdx);
 
-    uint8_t CheckSpaceForMoveOrAttack(uint64_t idxToEval, uint8_t enemyPieces);
+    uint8_t CheckSpaceForMoveOrAttack(uint64_t idxToEval, uint8_t friendlyPieces, uint8_t enemyPieces);
 
     void GeneratePawnMoves(uint8_t pt, moveType_t **moveList);
     void GenerateRookMoves(uint8_t pt, moveType_t **moveList);

@@ -6,7 +6,7 @@
 static ChessBoard *cb;
 static moveType_t *globalBestMove;
 
-#define SEARCH_DEPTH 7
+#define SEARCH_DEPTH 5
 
 /**
  * Default constructor for the ChessBoard class. Creates a fresh board
@@ -42,13 +42,10 @@ ChessBoard::ChessBoard(void)
         {
             this->pieces[BLACK_PIECES] |= this->pieces[pt];
         }
-        this->occupied |= this->pieces[pt];
     }
 
     this->occupied = BOARD_START_USED;
     this->empty = BOARD_START_EMPTY;
-
-    this->searchDepth = 0;
 
     // Value is 0 at game start
     this->value = EvaluateCurrentBoardValue(this);
@@ -153,7 +150,12 @@ int64_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize, moveType_
     moveType_t *moveToEvaluate, *movesToEvaluateAtNextDepth, *tempMove;
     bool evaluationNeeded = depth > 1;
 
-    //std::cout << "Assessing depth: " << depth << " for " << playerToMaximize << std::endl;
+    if(depth >= 3)
+    {
+        std::cout << "Assessing depth at: " << SEARCH_DEPTH - depth
+             << " # Moves Assessed: " << numMoves << std::endl;
+    }
+
     if(depth == 0)
     {
         return -EvaluateCurrentBoardValue(this);
@@ -281,11 +283,11 @@ uint64_t ChessBoard::ApplyMoveToBoard(moveType_t *moveToApply)
     }
 
     // 4) Is our end index occupied by our color
-    if((this->pieces[friendlyPieces] & ((uint64_t) 1 << moveToApply->endIdx)) > 1)
-    {
-        std::cout << "There was a friendly piece where we wanted to move!" << std::endl;
-        return STATUS_FAIL;
-    }
+    Util_Assert((this->pieces[friendlyPieces] & ((uint64_t) 1 << moveToApply->endIdx)) == 0,
+        "There was a friendly piece where we wanted to move!");
+
+    Util_Assert((this->pieces[friendlyPieces] ^ this->pieces[enemyPieces]) == this->occupied,
+        "Incoherence between piece states and state of actual board");
 
     // Apply the move for our piece type
     this->pieces[moveToApply->pt] ^= ((uint64_t) 1 << moveToApply->startIdx);
@@ -309,6 +311,7 @@ uint64_t ChessBoard::ApplyMoveToBoard(moveType_t *moveToApply)
                 break;
             }
         }
+        this->occupied ^= ((uint64_t) 1 << moveToApply->startIdx);
     }
     else if(((moveToApply->moveVal & MOVE_VALID_UNDO) != 0) && moveToApply->ptCaptured < NUM_PIECE_TYPES)
     {
@@ -320,16 +323,26 @@ uint64_t ChessBoard::ApplyMoveToBoard(moveType_t *moveToApply)
         this->pieces[enemyPieces] |= ((uint64_t) 1 << moveToApply->startIdx);
         this->pieces[moveToApply->ptCaptured] |= ((uint64_t) 1 << moveToApply->startIdx);
     }
+    else
+    {
+        this->occupied ^= ((uint64_t) 1 << moveToApply->startIdx);
+    }
+    
 
     // Ancillary bitboards also need to be updated
-    if(moveToApply->moveVal != MOVE_VALID_UNDO)
+/*     if(moveToApply->moveVal != MOVE_VALID_UNDO)
     {   
-        this->occupied &= ~((uint64_t) 1 << moveToApply->startIdx);
-    }
+        
+    } */
     this->occupied |= ((uint64_t) 1 << moveToApply->endIdx);
+    this->empty = ~(this->occupied);
 
     Util_Assert((this->pieces[BLACK_PIECES] & this->pieces[WHITE_PIECES]) == 0,
         "Pieces cannot overlap on the same spot");
+
+    Util_Assert((this->pieces[friendlyPieces] ^ this->pieces[enemyPieces]) == this->occupied,
+        "Incoherence between piece states and state of actual board");
+
 
     // Move is now applied 
 
@@ -520,9 +533,10 @@ void ChessBoard::GenerateRookMoves(uint8_t pt, moveType_t **moveList)
 {
     // Rooks can move vertically and horizontally. Logic is mostly unified between color
     uint8_t moveVal;
-    uint8_t enemyPieces;
+    uint8_t friendlyPieces, enemyPieces;
     uint64_t rooks = this->pieces[pt], temp, rookIdx;
     (pt < (NUM_PIECE_TYPES/2)) ? enemyPieces = BLACK_PIECES : enemyPieces = WHITE_PIECES;
+    (pt < (NUM_PIECE_TYPES/2)) ? friendlyPieces = WHITE_PIECES : friendlyPieces = BLACK_PIECES;
 
     // No rooks left
     if(rooks == 0)
@@ -551,7 +565,7 @@ void ChessBoard::GenerateRookMoves(uint8_t pt, moveType_t **moveList)
             }
 
             --temp;
-            moveVal = this->CheckSpaceForMoveOrAttack(temp, enemyPieces);
+            moveVal = this->CheckSpaceForMoveOrAttack(temp, friendlyPieces, enemyPieces);
             
             if(moveVal == MOVE_INVALID)
             {
@@ -578,7 +592,7 @@ void ChessBoard::GenerateRookMoves(uint8_t pt, moveType_t **moveList)
             }
 
             ++temp;
-            moveVal = this->CheckSpaceForMoveOrAttack(temp, enemyPieces);
+            moveVal = this->CheckSpaceForMoveOrAttack(temp, friendlyPieces, enemyPieces);
             if(moveVal == MOVE_INVALID)
             {
                 break;
@@ -604,7 +618,7 @@ void ChessBoard::GenerateRookMoves(uint8_t pt, moveType_t **moveList)
             }
 
             temp -= 8;
-            moveVal = this->CheckSpaceForMoveOrAttack(temp, enemyPieces);
+            moveVal = this->CheckSpaceForMoveOrAttack(temp, friendlyPieces, enemyPieces);
             if(moveVal == MOVE_INVALID)
             {
                 break;
@@ -630,7 +644,7 @@ void ChessBoard::GenerateRookMoves(uint8_t pt, moveType_t **moveList)
             }
 
             temp += 8;
-            moveVal = this->CheckSpaceForMoveOrAttack(temp, enemyPieces);
+            moveVal = this->CheckSpaceForMoveOrAttack(temp,  friendlyPieces, enemyPieces);
             if(moveVal == MOVE_INVALID)
             {
                 break;
@@ -650,9 +664,10 @@ void ChessBoard::GenerateRookMoves(uint8_t pt, moveType_t **moveList)
 void ChessBoard::GenerateBishopMoves(uint8_t pt, moveType_t **moveList)
 {
     uint8_t moveVal;
-    uint8_t enemyPieces;
+    uint8_t friendlyPieces, enemyPieces;
     uint64_t bishops = this->pieces[pt], bishopIdx, bishop, temp;
     (pt < (NUM_PIECE_TYPES/2)) ? enemyPieces = BLACK_PIECES : enemyPieces = WHITE_PIECES;
+    (pt < (NUM_PIECE_TYPES/2)) ? friendlyPieces = WHITE_PIECES : friendlyPieces = BLACK_PIECES;
 
     // No bishops left
     if(bishops == 0)
@@ -678,7 +693,7 @@ void ChessBoard::GenerateBishopMoves(uint8_t pt, moveType_t **moveList)
             }
 
             temp -= 9;
-            moveVal = this->CheckSpaceForMoveOrAttack(temp, enemyPieces);
+            moveVal = this->CheckSpaceForMoveOrAttack(temp, friendlyPieces, enemyPieces);
             if(moveVal == MOVE_INVALID)
             {
                 break;
@@ -702,7 +717,7 @@ void ChessBoard::GenerateBishopMoves(uint8_t pt, moveType_t **moveList)
             }
 
             temp -= 7;
-            moveVal = this->CheckSpaceForMoveOrAttack(temp, enemyPieces);
+            moveVal = this->CheckSpaceForMoveOrAttack(temp, friendlyPieces, enemyPieces);
             if(moveVal == MOVE_INVALID)
             {
                 break;
@@ -726,7 +741,7 @@ void ChessBoard::GenerateBishopMoves(uint8_t pt, moveType_t **moveList)
             }
 
             temp += 7;
-            moveVal = this->CheckSpaceForMoveOrAttack(temp, enemyPieces);
+            moveVal = this->CheckSpaceForMoveOrAttack(temp, friendlyPieces, enemyPieces);
             if(moveVal == MOVE_INVALID)
             {
                 break;
@@ -749,7 +764,7 @@ void ChessBoard::GenerateBishopMoves(uint8_t pt, moveType_t **moveList)
             }
 
             temp += 9;
-            moveVal = this->CheckSpaceForMoveOrAttack(temp, enemyPieces);
+            moveVal = this->CheckSpaceForMoveOrAttack(temp, friendlyPieces, enemyPieces);
             if(moveVal == MOVE_INVALID)
             {
                 break;
@@ -777,9 +792,10 @@ void ChessBoard::GenerateKnightMoves(uint8_t pt, moveType_t **moveList)
     // two squares vertically and one horizontally.
 
     uint8_t moveVal;
-    uint8_t enemyPieces;
+    uint8_t friendlyPieces, enemyPieces;
     uint64_t knights = this->pieces[pt], knightIdx, temp;
     (pt < (NUM_PIECE_TYPES/2)) ? enemyPieces = BLACK_PIECES : enemyPieces = WHITE_PIECES;
+    (pt < (NUM_PIECE_TYPES/2)) ? friendlyPieces = WHITE_PIECES : friendlyPieces = BLACK_PIECES;
 
     // No knights left
     if(knights == 0)
@@ -799,7 +815,7 @@ void ChessBoard::GenerateKnightMoves(uint8_t pt, moveType_t **moveList)
             // Can we move left
             if(knightIdx % 8 > 0)
             {
-                moveVal = this->CheckSpaceForMoveOrAttack(knightIdx + 15, enemyPieces);
+                moveVal = this->CheckSpaceForMoveOrAttack(knightIdx + 15, friendlyPieces, enemyPieces);
                 if(moveVal != MOVE_INVALID)
                 {
                     this->BuildMove(pt, knightIdx, knightIdx + 15, moveVal, moveList);
@@ -809,7 +825,7 @@ void ChessBoard::GenerateKnightMoves(uint8_t pt, moveType_t **moveList)
             // Can we move right
             if(knightIdx % 8 < 7)
             {
-                moveVal = this->CheckSpaceForMoveOrAttack(knightIdx + 17, enemyPieces);
+                moveVal = this->CheckSpaceForMoveOrAttack(knightIdx + 17, friendlyPieces, enemyPieces);
                 if(moveVal != MOVE_INVALID)
                 {
                     this->BuildMove(pt, knightIdx, knightIdx + 17, moveVal, moveList);
@@ -823,7 +839,7 @@ void ChessBoard::GenerateKnightMoves(uint8_t pt, moveType_t **moveList)
             // Can we move left
             if(knightIdx % 8 > 0)
             {
-                moveVal = this->CheckSpaceForMoveOrAttack(knightIdx - 17, enemyPieces);
+                moveVal = this->CheckSpaceForMoveOrAttack(knightIdx - 17, friendlyPieces, enemyPieces);
 
                 if(moveVal != MOVE_INVALID)
                 {
@@ -833,7 +849,7 @@ void ChessBoard::GenerateKnightMoves(uint8_t pt, moveType_t **moveList)
             // Can we move right
             if(knightIdx % 8 < 7)
             {
-                moveVal = this->CheckSpaceForMoveOrAttack(knightIdx - 15, enemyPieces);
+                moveVal = this->CheckSpaceForMoveOrAttack(knightIdx - 15, friendlyPieces, enemyPieces);
                 if(moveVal != MOVE_INVALID)
                 {
                     this->BuildMove(pt, knightIdx, knightIdx - 15, moveVal, moveList);
@@ -847,7 +863,7 @@ void ChessBoard::GenerateKnightMoves(uint8_t pt, moveType_t **moveList)
             // Can we move up
             if(knightIdx < NUM_BOARD_INDICIES - 8)
             {
-                moveVal = this->CheckSpaceForMoveOrAttack(knightIdx + 6, enemyPieces);
+                moveVal = this->CheckSpaceForMoveOrAttack(knightIdx + 6, friendlyPieces, enemyPieces);
                 if(moveVal != MOVE_INVALID)
                 {
                     this->BuildMove(pt, knightIdx, knightIdx + 6, moveVal, moveList);
@@ -856,7 +872,7 @@ void ChessBoard::GenerateKnightMoves(uint8_t pt, moveType_t **moveList)
             // Can we move down
             if(knightIdx >= 8)
             {
-                moveVal = this->CheckSpaceForMoveOrAttack(knightIdx - 10, enemyPieces);
+                moveVal = this->CheckSpaceForMoveOrAttack(knightIdx - 10, friendlyPieces, enemyPieces);
                 if(moveVal != MOVE_INVALID)
                 {
                     this->BuildMove(pt, knightIdx, knightIdx - 10, moveVal, moveList);
@@ -870,7 +886,7 @@ void ChessBoard::GenerateKnightMoves(uint8_t pt, moveType_t **moveList)
             // Can we move up
             if(knightIdx < NUM_BOARD_INDICIES - 8)
             {
-                moveVal = this->CheckSpaceForMoveOrAttack(knightIdx + 10, enemyPieces);
+                moveVal = this->CheckSpaceForMoveOrAttack(knightIdx + 10, friendlyPieces, enemyPieces);
                 if(moveVal != MOVE_INVALID)
                 {
                     this->BuildMove(pt, knightIdx, knightIdx + 10, moveVal, moveList);
@@ -879,7 +895,7 @@ void ChessBoard::GenerateKnightMoves(uint8_t pt, moveType_t **moveList)
             // Can we move down
             if(knightIdx >= 8)
             {
-                moveVal = this->CheckSpaceForMoveOrAttack(knightIdx - 6, enemyPieces);
+                moveVal = this->CheckSpaceForMoveOrAttack(knightIdx - 6, friendlyPieces, enemyPieces);
                 if(moveVal != MOVE_INVALID)
                 {
                     this->BuildMove(pt, knightIdx, knightIdx - 6, moveVal, moveList);           
@@ -926,18 +942,29 @@ void ChessBoard::GenerateKingMoves(uint8_t pt, moveType_t **moveList)
 /**
  * Utility function for determining if a piece can be moved to or attacked on
  * 
- * @param idxToEval:    The index for us to evaluate
- * @param enemyPieces:  The pieceType of the enemy
+ * @param idxToEval:        The index for us to evaluate
+ * @param friendlyPieces:   The pieceType of our allies
+ * @param enemyPieces:      The pieceType of the enemy
  * 
  * @return  The validity of the selected move
  */
-uint8_t ChessBoard::CheckSpaceForMoveOrAttack(uint64_t idxToEval, uint8_t enemyPieces)
+uint8_t ChessBoard::CheckSpaceForMoveOrAttack(uint64_t idxToEval, uint8_t friendlyPieces, uint8_t enemyPieces)
 {
-    if((((uint64_t) 1 << idxToEval) & this->occupied) == 0)
+
+    uint64_t mask = ((uint64_t) 1 << idxToEval);
+
+    // We cannot move into our own team
+    if((mask & this->pieces[friendlyPieces]) != 0)
+    {
+        return MOVE_INVALID;
+    }
+
+    // Otherwise is this move a move into an empty space
+    if((mask & this->occupied == 0) && (mask & this->pieces[enemyPieces] == 0))
     {
         return MOVE_VALID;
     }
-    else if((((uint64_t) 1 << idxToEval) & this->pieces[enemyPieces]) != 0)
+    else if((mask & this->pieces[friendlyPieces] == 0) && (mask & this->pieces[enemyPieces] != 0))
     {
         return MOVE_VALID_ATTACK;
     }   
@@ -963,6 +990,7 @@ void ChessBoard::BuildMove(uint8_t pt, uint8_t startIdx, uint8_t endIdx, uint8_t
     moveType_t *newMove, *lastMove;
     bool legalMove = true;
     uint8_t friendlyPieces, enemyPieces;
+    uint64_t mask = ((uint64_t) 1 << endIdx);
     (pt >= NUM_PIECE_TYPES/2) ? friendlyPieces = BLACK_PIECES : friendlyPieces = WHITE_PIECES;
     (pt >= NUM_PIECE_TYPES/2) ? enemyPieces = WHITE_PIECES : enemyPieces = BLACK_PIECES;
 
@@ -978,17 +1006,21 @@ void ChessBoard::BuildMove(uint8_t pt, uint8_t startIdx, uint8_t endIdx, uint8_t
     Util_Assert(startIdx < NUM_BOARD_INDICIES && endIdx < NUM_BOARD_INDICIES
         && startIdx != endIdx, "Invalid indicies provided for move");
 
-    Util_Assert((this->pieces[friendlyPieces] & ((uint64_t) 1 << endIdx)) == 0,
+    Util_Assert((this->pieces[friendlyPieces] & mask) == 0,
         "There was a friendly piece where we wanted to move!");
 
     if((moveVal & MOVE_VALID_ATTACK) > 0)
     {
-        Util_Assert(((this->pieces[enemyPieces] & ((uint64_t) 1 << endIdx)) != 0), "Invalid attack move");
+        Util_Assert(((this->pieces[enemyPieces] & mask) != 0), "Invalid attack move");
     }
-
-    if((moveVal & MOVE_VALID) > 0)
+    else if((moveVal & MOVE_VALID) > 0)
     {
-        Util_Assert(((this->pieces[enemyPieces] & ((uint64_t) 1 << endIdx)) == 0), "Invalid move");
+        Util_Assert(((this->occupied & mask) == 0),
+            "Invalid move: Board was occupied where we expected empty");
+        Util_Assert(((this->pieces[friendlyPieces] & mask) == 0),
+            "Invalid move: Friendly piece where we expected empty");
+        Util_Assert(((this->pieces[enemyPieces] & mask) == 0),
+            "Invalid move: Enemy pieces where we expected empty");
     }
 
     // Now for an interesting quirk. If we have detected that we can actually directly attack
