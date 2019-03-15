@@ -125,7 +125,8 @@ public:
     int64_t GetCurrentValue() const {return value;}
     static int64_t EvaluateCurrentBoardValue(ChessBoard *cb);
 
-    int64_t GetBestMove(uint64_t depth, bool playerToMaximize, moveType_t *movesToEvaluateAtThisDepth);
+    int32_t GetBestMove(uint64_t depth, bool playerToMaximize,
+                         moveType_t *movesToEvaluateAtThisDepth, int32_t alpha, int32_t beta);
     moveType_t *GenerateMoves(uint8_t pt);
     moveType_t *GetNextMove(uint8_t pt);
     void BuildMove(uint8_t pt, uint8_t startIdx, uint8_t endIdx, uint8_t moveVal, moveType_t **moveList);
