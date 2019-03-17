@@ -84,11 +84,11 @@ public:
     uint64_t ApplyMoveToBoard(moveType_t *moveToApply);
     uint64_t UndoMoveFromBoard(moveType_t *moveToUndo);
 
-    static bool IsValidRookMove(ChessBoard *cb, uint8_t idxToFind, uint8_t endIdx);
-    static bool IsValidKnightMove(uint8_t idxToFind, uint8_t endIdx);
-    static bool IsValidBishopMove(ChessBoard *cb, uint8_t idxToFind, uint8_t endIdx);
-    static bool IsValidQueenMove(ChessBoard *cb, uint8_t idxToFind, uint8_t endIdx);
-    bool IsValidMove(uint8_t pt, uint8_t idxToFind, uint8_t endIdx);
+    static bool IsValidRookMove(ChessBoard *cb, uint8_t idxToAssess, uint8_t endIdx);
+    static bool IsValidKnightMove(uint8_t idxToAssess, uint8_t endIdx);
+    static bool IsValidBishopMove(ChessBoard *cb, uint8_t idxToAssess, uint8_t endIdx);
+    static bool IsValidQueenMove(ChessBoard *cb, uint8_t idxToAssess, uint8_t endIdx);
+    bool IsValidMove(uint8_t pt, uint8_t idxToAssess, uint8_t endIdx);
 
     uint8_t CheckSpaceForMoveOrAttack(uint64_t idxToEval, uint8_t friendlyPieces, uint8_t enemyPieces);
 
