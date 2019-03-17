@@ -1,3 +1,4 @@
+#include "chessboard_defs.h"
 #include "chessboard.h"
 #include "util.h"
 

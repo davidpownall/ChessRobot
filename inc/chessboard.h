@@ -1,61 +1,9 @@
 #include <cstdint>
 #include <string>
-#include <queue>
+#include "chessboard_defs.h"
 
 #ifndef CHESSBOARD_DEFINE
 #define CHESSBOARD_DEFINE
-
-#define WHITE_PAWN_START    0xff00
-#define BLACK_PAWN_START    0x00ff000000000000
-
-#define WHITE_ROOK_START    0x81
-#define BLACK_ROOK_START    0x8100000000000000
-
-#define WHITE_KNIGHT_START  0x42
-#define BLACK_KNIGHT_START  0x4200000000000000
-
-#define WHITE_BISHOP_START  0x24
-#define BLACK_BISHOP_START  0x2400000000000000
-
-#define WHITE_QUEEN_START   0x10
-#define BLACK_QUEEN_START   0x800000000000000
-
-#define WHITE_KING_START    0x08
-#define BLACK_KING_START    0x1000000000000000
-
-#define BOARD_START_USED    0xffff00000000ffff
-#define BOARD_START_EMPTY   0x0000FFFFFFFF0000
-
-#define COLUMN_MASK         0x1010101010101010
-#define BOARD_MASK          0xFFFFFFFFFFFFFFFF
-
-#define NUM_PIECE_TYPES     12
-#define MAX_EVAL_MOVES      40
-#define NUM_BOARD_INDICIES  64
-
-#define MOVE_INVALID            0x0
-#define MOVE_VALID              0x1
-#define MOVE_VALID_ATTACK       0x2
-#define MOVE_VALID_CASTLE_KING  0x4
-#define MOVE_VALID_CASTLE_QUEEN 0x8
-#define MOVE_VALID_CHECK        0x10
-#define MOVE_VALID_MATE         0x20
-#define MOVE_VALID_UNDO         0x40
-
-#define WHITE_PAWN 0x0
-#define WHITE_ROOK 0x1
-#define WHITE_BISHOP 0x2
-#define WHITE_KNIGHT 0x3
-#define WHITE_QUEEN 0x4
-#define WHITE_KING 0x5
-#define BLACK_PAWN 0x6
-#define BLACK_ROOK 0x7
-#define BLACK_BISHOP 0x8
-#define BLACK_KNIGHT 0x9
-#define BLACK_QUEEN 0xa
-#define BLACK_KING 0xb
-#define WHITE_PIECES 0xc
-#define BLACK_PIECES 0xd
 
 /**
  * The structure which defines a given move applied to a chessboard. In order to
@@ -99,6 +47,9 @@ private:
 
     uint64_t threatMap;
 
+    // Set when we have assessed the best response to an input move
+    moveType_t *bestMove;
+
 public:
 
     ChessBoard(void);
@@ -121,6 +72,7 @@ public:
     uint64_t GetBlackBishops() const { return pieces[BLACK_BISHOP]; };
     uint64_t GetBlackQueen() const { return pieces[BLACK_QUEEN]; };
     uint64_t GetBlackKing() const { return pieces[BLACK_KING]; };
+    moveType_t *GetAddrOfBestMove() const {return bestMove; };
 
     int64_t GetCurrentValue() const {return value;}
     static int64_t EvaluateCurrentBoardValue(ChessBoard *cb);
@@ -128,7 +80,6 @@ public:
     int32_t GetBestMove(uint64_t depth, bool playerToMaximize,
                          moveType_t *movesToEvaluateAtThisDepth, int32_t alpha, int32_t beta);
     moveType_t *GenerateMoves(uint8_t pt);
-    moveType_t *GetNextMove(uint8_t pt);
     void BuildMove(uint8_t pt, uint8_t startIdx, uint8_t endIdx, uint8_t moveVal, moveType_t **moveList);
     uint64_t ApplyMoveToBoard(moveType_t *moveToApply);
     uint64_t UndoMoveFromBoard(moveType_t *moveToUndo);
@@ -150,9 +101,8 @@ public:
 
 };
 
+moveType_t *ConvertStringToMove(ChessBoard* cb, std::string str);
 std::string ConvertMoveToString(ChessBoard *cb, moveType_t *move);
-moveType_t *GetOpponentMove(ChessBoard *cb, std::string str);
 int64_t GetPositionValueFromTable(uint64_t pieceTypeBase, uint64_t idx);
-void PlayGame(void);
 
 #endif // CHESSBOARD_DEFINE

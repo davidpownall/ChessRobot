@@ -1,12 +1,9 @@
 #include <iostream>
-#include <mutex>
 #include "util.h"
+#include "chessboard_defs.h"
 #include "chessboard.h"
 
 static ChessBoard *cb;
-static moveType_t *globalBestMove;
-
-#define SEARCH_DEPTH 7
 
 /**
  * Default constructor for the ChessBoard class. Creates a fresh board
@@ -145,9 +142,10 @@ static uint64_t numMoves = 0;
  *                          depth
  * 
  * @note                    At search depth 0, the move with the best score will be 
- *                          placed in a variable of the board globalBestMove;
+ *                          placed in a variable of the board bestMove;
  */
-int32_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize, moveType_t *movesToEvaluateAtThisDepth, int32_t alpha, int32_t beta)
+int32_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize,
+                                 moveType_t *movesToEvaluateAtThisDepth, int32_t alpha, int32_t beta)
 {
     int32_t score, savedScore, value;
     moveType_t *moveToEvaluate, *movesToEvaluateAtNextDepth, *tempMove;
@@ -186,7 +184,7 @@ int32_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize, moveType_
 
             if(depth == SEARCH_DEPTH && score >= savedScore)
             {
-                globalBestMove = moveToEvaluate;
+                this->bestMove = moveToEvaluate;
             }
             this->UndoMoveFromBoard(moveToEvaluate);
 
@@ -197,8 +195,6 @@ int32_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize, moveType_
 
             moveToEvaluate = moveToEvaluate->adjMove;
 
-            //delete moveToEvaluate;
-            //moveToEvaluate = tempMove;
         }
     }
     else
@@ -221,7 +217,7 @@ int32_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize, moveType_
 
             if(depth == SEARCH_DEPTH && score >= savedScore)
             {
-                globalBestMove = moveToEvaluate;
+                this->bestMove = moveToEvaluate;
             }
             this->UndoMoveFromBoard(moveToEvaluate);
 
@@ -234,6 +230,9 @@ int32_t ChessBoard::GetBestMove(uint64_t depth, bool playerToMaximize, moveType_
 
         }
     }
+
+//    std::cout << "Examined " << numMoves << " moves during search" << std::endl;
+//    numMoves = 0;
     return score;
 }
 
@@ -925,7 +924,8 @@ void ChessBoard::GenerateKnightMoves(uint8_t pt, moveType_t **moveList)
 /**
  * Generates all possible moves for our queen(s)
  * 
- * @param pt:   The type of queen to generate the move for
+ * @param pt:       The type of queen to generate the move for
+ * @param moveList: The list of moves to append ours to
  */
 void ChessBoard::GenerateQueenMoves(uint8_t pt, moveType_t **moveList)
 {
@@ -937,6 +937,12 @@ void ChessBoard::GenerateQueenMoves(uint8_t pt, moveType_t **moveList)
     this->GenerateRookMoves(pt, moveList);
 }
 
+/**
+ * Generates all possible moves for our king
+ * 
+ * @param pt:       The type of king to generate the move for
+ * @param moveList: The list of moves to append ours to
+ */
 void ChessBoard::GenerateKingMoves(uint8_t pt, moveType_t **moveList)
 {
     // While the king has basic movement, it cannot put itself into check,
@@ -1492,65 +1498,4 @@ std::string ConvertMoveToString(ChessBoard *cb, moveType_t *move)
     // Get row and column from the endIdx
 
     return moveStr;
-}
-
-/**
- * Entry point where we run the game from. Split into two stages
- *  
- * 1) Accept opponent input and interpret
- * 
- * 2) Search for best move and generate response
- * 
- * 3) Send response to player
- */
-void PlayGame(void)
-{
-    moveType_t *tempMove, *ourMoves, selectedMove;
-    std::string str;
-
-    // Get the board
-    ChessBoard *cb = new ChessBoard();
-    if(cb == NULL)
-    {
-        return;
-    }
-
-    // Main loop of the chess game, we are playing as black
-    while(true)
-    {
-        // State 1
-
-        str.clear();
-        std::cout << "Please enter move: ";
-        std::cin >> str;
-        tempMove = ConvertStringToMove(cb, str);
-
-        Util_Assert(tempMove != NULL, "Received bad move!");
-
-        cb->ApplyMoveToBoard(tempMove);
-        ourMoves = cb->GenerateMoves(BLACK_PIECES);
-
-        // State 2
-        cb->GetBestMove(SEARCH_DEPTH, false, ourMoves, INT32_MIN, INT32_MAX);
-
-        Util_Assert(globalBestMove != NULL, "Failed to find valid move!");
-
-        selectedMove = *globalBestMove;
-
-        // Actually apply our chosen move to the board
-        cb->ApplyMoveToBoard(globalBestMove);
-
-        // Cleanup
-        while(ourMoves != NULL && ourMoves->legalMove)
-        {
-            tempMove = ourMoves->adjMove;
-            delete ourMoves;
-            ourMoves = tempMove;
-        }
-
-        // State 3
-        std::cout << "Examined " << numMoves << " moves during search" << std::endl;
-        numMoves = 0;
-        std::cout << "Response:" << ConvertMoveToString(cb, &selectedMove) << std::endl;
-    }
 }
