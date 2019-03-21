@@ -207,8 +207,8 @@ void ChessBoard::GenerateRookMoves(uint8_t pt, moveType_t **moveList)
     uint8_t moveVal;
     uint8_t friendlyPieces, enemyPieces;
     uint64_t rooks = this->pieces[pt], temp, rookIdx;
-    (pt < (NUM_PIECE_TYPES/2)) ? enemyPieces = BLACK_PIECES : enemyPieces = WHITE_PIECES;
-    (pt < (NUM_PIECE_TYPES/2)) ? friendlyPieces = WHITE_PIECES : friendlyPieces = BLACK_PIECES;
+
+    Util_AssignFriendAndFoe(pt, &friendlyPieces, &enemyPieces);
 
     // No rooks left
     if(rooks == 0)
@@ -338,8 +338,8 @@ void ChessBoard::GenerateBishopMoves(uint8_t pt, moveType_t **moveList)
     uint8_t moveVal;
     uint8_t friendlyPieces, enemyPieces;
     uint64_t bishops = this->pieces[pt], bishopIdx, bishop, temp;
-    (pt < (NUM_PIECE_TYPES/2)) ? enemyPieces = BLACK_PIECES : enemyPieces = WHITE_PIECES;
-    (pt < (NUM_PIECE_TYPES/2)) ? friendlyPieces = WHITE_PIECES : friendlyPieces = BLACK_PIECES;
+
+    Util_AssignFriendAndFoe(pt, &friendlyPieces, &enemyPieces);
 
     // No bishops left
     if(bishops == 0)
@@ -466,8 +466,8 @@ void ChessBoard::GenerateKnightMoves(uint8_t pt, moveType_t **moveList)
     uint8_t moveVal;
     uint8_t friendlyPieces, enemyPieces;
     uint64_t knights = this->pieces[pt], knightIdx, temp;
-    (pt < (NUM_PIECE_TYPES/2)) ? enemyPieces = BLACK_PIECES : enemyPieces = WHITE_PIECES;
-    (pt < (NUM_PIECE_TYPES/2)) ? friendlyPieces = WHITE_PIECES : friendlyPieces = BLACK_PIECES;
+
+    Util_AssignFriendAndFoe(pt, &friendlyPieces, &enemyPieces);
 
     // No knights left
     if(knights == 0)
@@ -604,9 +604,10 @@ void ChessBoard::GenerateKingMoves(uint8_t pt, moveType_t **moveList)
     // While the king has basic movement, it cannot put itself into check,
     // we need an additional guard in place for that. Also castling behavior.
 
-    uint8_t enemyPieces;
+    uint8_t friendlyPieces, enemyPieces;
     uint64_t king = this->pieces[pt], temp;
-    (pt < (NUM_PIECE_TYPES/2)) ? enemyPieces = BLACK_PIECES : enemyPieces = WHITE_PIECES;
+    
+    Util_AssignFriendAndFoe(pt, &friendlyPieces, &enemyPieces);
 
     // This is where we get slightly tricky. The king cannot move into a space under threat
     // What this implies is that we need to know every single space which is under threat

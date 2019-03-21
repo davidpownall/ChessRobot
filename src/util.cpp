@@ -118,6 +118,19 @@ void Util_Reverse64BitInteger(uint64_t *toReverse)
     *toReverse = (*toReverse | ((uint64_t) reversalResult << 32));    
 }
 
+/**
+ * Utility function for assigning friend and foe piece types based on input
+ * 
+ * 
+ */
+void Util_AssignFriendAndFoe(uint8_t pt, uint8_t *friendlyPieces, uint8_t *enemyPieces)
+{
+    Util_Assert(friendlyPieces != NULL && enemyPieces != NULL, "Bad input ptrs");
+    Util_Assert(pt < NUM_PIECE_TYPES, "Bad piecetype input");
+
+    (pt < (NUM_PIECE_TYPES/2)) ? *enemyPieces = BLACK_PIECES : *enemyPieces = WHITE_PIECES;
+    (pt < (NUM_PIECE_TYPES/2)) ? *friendlyPieces = WHITE_PIECES : *friendlyPieces = BLACK_PIECES;
+}
 
 
 /**
@@ -143,4 +156,3 @@ void Util_Assert(bool expr, std::string str)
     }
 #endif // DEBUG_BUILD
 }
-
