@@ -1,3 +1,5 @@
+/* Useful utility functions */
+
 #include "util.h"
 #include "chessboard.h"
 

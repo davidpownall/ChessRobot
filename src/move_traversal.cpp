@@ -1,3 +1,5 @@
+/* This file is responsible for determining the next best move given a chessboard state */
+
 #include <iostream>
 #include "util.h"
 #include "chessboard_defs.h"

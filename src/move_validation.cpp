@@ -1,3 +1,6 @@
+
+/* This file is responsible for the validation of chess moves */
+
 #include <iostream>
 #include "util.h"
 #include "chessboard_defs.h"

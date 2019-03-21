@@ -7,12 +7,8 @@ things to do:
         - Is king in check?
         - Is the location that the king is moving to safe?
         - Check behavior
-    - A threatmap is honestly needed. I can't see away around using it
-        - will clean up a lot of other routines regarding illegal moves and check
 
 2) Update all comments and doxygen/headers/bs
 3) Clean up basic Util_Assert procedure vs error return codes
 4) Unit level testing of move generation for a given piece type
 5) Integration level testing of the board as whole
-6) transition to minimax
-7) Add Alpha beta pruning

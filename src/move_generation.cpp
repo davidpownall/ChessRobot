@@ -1,3 +1,5 @@
+/* This file is responsible for the generation of chess moves given a board state */
+
 #include <iostream>
 #include "util.h"
 #include "chessboard_defs.h"

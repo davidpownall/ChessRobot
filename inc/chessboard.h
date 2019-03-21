@@ -99,6 +99,11 @@ public:
     void GenerateQueenMoves(uint8_t pt, moveType_t **moveList);
     void GenerateKingMoves(uint8_t pt, moveType_t **moveList);
 
+    void GenerateThreatMap(void);
+    void UpdateThreatMap(moveType_t *moveApplied);
+    void RevertThreatMap(void);
+    void IsIndexUnderThreat(bool whiteThreat, uint8_t idx);
+
 };
 
 moveType_t *ConvertStringToMove(ChessBoard* cb, std::string str);

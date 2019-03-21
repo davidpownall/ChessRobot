@@ -1,3 +1,5 @@
+/* This file is responsible for the physical construction of chess moves objects structures */
+
 #include <iostream>
 #include "util.h"
 #include "chessboard_defs.h"

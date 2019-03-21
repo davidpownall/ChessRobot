@@ -1,3 +1,5 @@
+/* This file is responsible for the application of moves to the chessboard */
+
 #include <iostream>
 #include "util.h"
 #include "chessboard_defs.h"
@@ -50,18 +52,16 @@ uint64_t ChessBoard::ApplyMoveToBoard(moveType_t *moveToApply)
         return STATUS_FAIL;        
     }
 
+    Util_AssignFriendAndFoe(moveToApply->pt, &friendlyPieces, &enemyPieces);
+
     if(moveToApply->pt < (NUM_PIECE_TYPES/2))
     {
-        friendlyPieces = WHITE_PIECES;
         friendlyStart = WHITE_PAWN;
-        enemyPieces = BLACK_PIECES;
         enemyStart = BLACK_PAWN;
     }
     else
     {
-        friendlyPieces = BLACK_PIECES;
         friendlyStart = BLACK_PAWN;
-        enemyPieces = WHITE_PIECES;
         enemyStart = WHITE_PAWN;
     }
 
