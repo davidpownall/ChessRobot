@@ -113,9 +113,9 @@ public:
     void GenerateKingMoves(uint8_t pt, moveType_t **moveList);
 
     void GenerateThreatMap(void);
-    void UpdateThreatMap(moveType_t *moveApplied, uint8_t currentSearchDepth);
-    void RevertThreatMap(uint8_t currentSearchDepth);
-    bool IsIndexUnderThreat(uint8_t searchDepth, uint8_t idx);
+    void UpdateThreatMap(moveType_t *moveApplied);
+    void RevertThreatMap();
+    bool IsIndexUnderThreat(uint8_t idx);
     bool IsIndexUnderThreat(uint8_t searchDepth, uint8_t idx, bool whiteThreat);
 
 };
