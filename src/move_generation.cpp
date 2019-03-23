@@ -426,7 +426,7 @@ void ChessBoard::GenerateBishopMoves(uint8_t pt, moveType_t **moveList)
             {
                 break;
             }
-        } while(temp < NUM_BOARD_INDICIES);
+        } while(temp < NUM_BOARD_INDICES);
 
         // Up right
         temp = bishopIdx;
@@ -449,7 +449,7 @@ void ChessBoard::GenerateBishopMoves(uint8_t pt, moveType_t **moveList)
             {
                 break;
             }
-        } while(temp < NUM_BOARD_INDICIES);
+        } while(temp < NUM_BOARD_INDICES);
     }
 }
 
@@ -484,7 +484,7 @@ void ChessBoard::GenerateKnightMoves(uint8_t pt, moveType_t **moveList)
         knights ^= ((uint64_t) 1 << knightIdx);
 
         // Assess upwards vertical moves
-        if(knightIdx < NUM_BOARD_INDICIES - 16)
+        if(knightIdx < NUM_BOARD_INDICES - 16)
         {
             // Can we move left
             if(knightIdx % 8 > 0)
@@ -535,7 +535,7 @@ void ChessBoard::GenerateKnightMoves(uint8_t pt, moveType_t **moveList)
         if(knightIdx % 8 > 1)
         {
             // Can we move up
-            if(knightIdx < NUM_BOARD_INDICIES - 8)
+            if(knightIdx < NUM_BOARD_INDICES - 8)
             {
                 moveVal = this->CheckSpaceForMoveOrAttack(knightIdx + 6, friendlyPieces, enemyPieces);
                 if(moveVal != MOVE_INVALID)
@@ -558,7 +558,7 @@ void ChessBoard::GenerateKnightMoves(uint8_t pt, moveType_t **moveList)
         if(knightIdx % 8 < 6)
         {
             // Can we move up
-            if(knightIdx < NUM_BOARD_INDICIES - 8)
+            if(knightIdx < NUM_BOARD_INDICES - 8)
             {
                 moveVal = this->CheckSpaceForMoveOrAttack(knightIdx + 10, friendlyPieces, enemyPieces);
                 if(moveVal != MOVE_INVALID)

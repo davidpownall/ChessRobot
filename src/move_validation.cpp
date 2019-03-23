@@ -121,7 +121,7 @@ bool ChessBoard::IsValidKnightMove(uint8_t idxToAssess, uint8_t endIdx)
     if(endIdx > idxToAssess)
     {
         // Assess upwards vertical moves
-        if(idxToAssess < NUM_BOARD_INDICIES - 16)
+        if(idxToAssess < NUM_BOARD_INDICES - 16)
         {
             // Can we up then left or right
             if((idxToAssess + 15 % 8 < idxToAssess % 8 && idxToAssess + 15 == endIdx)
@@ -131,11 +131,11 @@ bool ChessBoard::IsValidKnightMove(uint8_t idxToAssess, uint8_t endIdx)
             }
         }
         // Assess horizontal upwards moves
-        if(idxToAssess < NUM_BOARD_INDICIES - 8)
+        if(idxToAssess < NUM_BOARD_INDICES - 8)
         {
             // Can we move left then up or right then up
-            if((idxToAssess % 8 >= 2 && idxToAssess + 6 < NUM_BOARD_INDICIES && idxToAssess + 6 == endIdx)
-                || (idxToAssess % 8 < 6 && idxToAssess + 10 < NUM_BOARD_INDICIES && idxToAssess + 10 == endIdx))
+            if((idxToAssess % 8 >= 2 && idxToAssess + 6 < NUM_BOARD_INDICES && idxToAssess + 6 == endIdx)
+                || (idxToAssess % 8 < 6 && idxToAssess + 10 < NUM_BOARD_INDICES && idxToAssess + 10 == endIdx))
             {
                 return true;
             }
@@ -157,8 +157,8 @@ bool ChessBoard::IsValidKnightMove(uint8_t idxToAssess, uint8_t endIdx)
         if(idxToAssess >= 8)
         {
             // Can we move left then down or right then down
-            if((idxToAssess % 8 >= 2 && idxToAssess - 6 < NUM_BOARD_INDICIES && idxToAssess - 6 == endIdx)
-                || (idxToAssess % 8 < 6 && idxToAssess - 10 < NUM_BOARD_INDICIES && idxToAssess - 10 == endIdx))
+            if((idxToAssess % 8 >= 2 && idxToAssess - 6 < NUM_BOARD_INDICES && idxToAssess - 6 == endIdx)
+                || (idxToAssess % 8 < 6 && idxToAssess - 10 < NUM_BOARD_INDICES && idxToAssess - 10 == endIdx))
             {
                 return true;
             }

@@ -30,8 +30,8 @@ uint64_t ChessBoard::ApplyMoveToBoard(moveType_t *moveToApply)
     // check for the obvious stuff.
 
     // 1) Are our indicies valid?
-    if(moveToApply->startIdx >= NUM_BOARD_INDICIES
-        || moveToApply->endIdx >= NUM_BOARD_INDICIES)
+    if(moveToApply->startIdx >= NUM_BOARD_INDICES
+        || moveToApply->endIdx >= NUM_BOARD_INDICES)
     {
         std::cout << "Move indicies were bad!" << std::endl;
         return STATUS_FAIL;        

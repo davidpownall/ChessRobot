@@ -4,7 +4,7 @@
 #include "chessboard.h"
 #include "util.h"
 
-static const int64_t pieceValueTables[NUM_BOARD_INDICIES][NUM_BOARD_INDICIES] =
+static const int64_t pieceValueTables[NUM_BOARD_INDICES][NUM_BOARD_INDICES] =
 {
     // Pawns
     {
@@ -88,7 +88,7 @@ static const int64_t pieceValueTables[NUM_BOARD_INDICIES][NUM_BOARD_INDICIES] =
 int64_t GetPositionValueFromTable(uint64_t pieceTypeBase, uint64_t idx)
 {
     Util_Assert(pieceTypeBase < 7, "Incorrect piece type provided to position value function");
-    Util_Assert(idx < NUM_BOARD_INDICIES, "Bad board idx provided to position value function");
+    Util_Assert(idx < NUM_BOARD_INDICES, "Bad board idx provided to position value function");
 
     return pieceValueTables[pieceTypeBase][idx];
 }

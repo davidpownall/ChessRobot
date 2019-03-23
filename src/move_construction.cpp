@@ -37,7 +37,7 @@ void ChessBoard::BuildMove(uint8_t pt, uint8_t startIdx, uint8_t endIdx,
 
     Util_Assert(pt < NUM_PIECE_TYPES, "Invalid piece type for move");
 
-    Util_Assert(startIdx < NUM_BOARD_INDICIES && endIdx < NUM_BOARD_INDICIES
+    Util_Assert(startIdx < NUM_BOARD_INDICES && endIdx < NUM_BOARD_INDICES
         && startIdx != endIdx, "Invalid indicies provided for move");
 
     Util_Assert((this->pieces[friendlyPieces] & mask) == 0,

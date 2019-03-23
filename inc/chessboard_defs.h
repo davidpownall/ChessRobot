@@ -33,7 +33,7 @@
 
 // Game definitions
 #define NUM_PIECE_TYPES     12
-#define NUM_BOARD_INDICIES  64
+#define NUM_BOARD_INDICES  64
 
 // Move types
 #define MOVE_INVALID            0x0
