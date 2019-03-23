@@ -10,9 +10,42 @@
 #include "chessboard.h"
 
 // Our persistent threat map for the life of the program. Index 0 is the current state.
-static std::array<std::array<std::list<threatMapEntry_t>, NUM_BOARD_INDICES>, SEARCH_DEPTH + 1> threatMap;
+static std::array<std::array<std::list<std::shared_ptr<threatMapEntry_t>, NUM_BOARD_INDICES>, SEARCH_DEPTH + 1> threatMap;
 
 static uint8_t currentSearchDepth = 0;
+
+static void ThreatMap_RemoveThreatFromMap(uint8_t pt, uint8_t threatIdx, uint8_t squareIdx)
+{
+    std::list<std::shared_ptr<threatMapEntry_t>> idxList = std::get<squareIdx>(std::get<currentSearchDepth>(threatMap));
+    std::list<std::shared_ptr<threatMapEntry_t>>::iterator it = idxList.begin();
+    while (it != idxList.end())
+    {
+        // Remove the given threat which matches the lists location
+        if((pt == *it->threatPt) && (idx == *it->threatIdx))
+        {
+            idxList.erase(it++);
+            return;
+        }
+    }
+    Util_Assert(false, "Unable to find specific threat we wanted to remove from threatmap");
+}
+
+static void ThreatMap_AddThreatToMap(uint8_t pt,  uint8_t threatIdx, uint8_t squareIdx)
+{
+    auto entry = std::make_shared<threatMapEntry_t>(threatMapEntry_t{ pt, idx });
+
+#if DEBUG_BUILD
+    // This is worth checking for in DEBUG_BUILDs, but the performance hit is probably not worth it
+    std::list<std::shared_ptr<threatMapEntry_t>> idxList = std::get<idx>(std::get<currentSearchDepth>(threatMap));
+    for (std::list<std::shared_ptr<threatMapEntry_t>>::iterator it=idxList.begin(); it != idxList.end(); ++it)
+    {   
+        Util_Assert((pt != *it->threatPt) || (idx != *it->threatIdx),
+                     "Duplicate threat found when adding threat");
+    }
+#endif
+
+    std::get<tempIdx>(std::get<currentSearchDepth>(threatMap)).add(entry);
+}
 
 /**
  * Creates the initial threat map for a chess board
@@ -45,7 +78,6 @@ void ChessBoard::UpdateThreatMap(moveType_t *moveApplied)
      * Check our current index for any present threat. If there is none, then we do
      * not need to worry about the threat assessment for other pieces attacking our squaree
      */
-
     if(IsIndexUnderThreat(currentSearchDepth, moveApplied->startIdx) == true)
     {
         // If there are none of these PTs attacking this square, they will return quickly
@@ -95,8 +127,8 @@ bool ChessBoard::IsIndexUnderThreat(uint8_t idx, bool whiteThreat)
 
     Util_Assert(idx < NUM_BOARD_INDICES, "Bad piece index provided in threat mapping!");
 
-    std::list<threatMapEntry_t> idxList = std::get<idx>(std::get<currentSearchDepth>(threatMap));
-    for (std::list<threatMapEntry_t>::iterator it=idxList.begin(); it != idxList.end(); ++it)
+    std::list<std::shared_ptr<threatMapEntry_t>> idxList = std::get<idx>(std::get<currentSearchDepth>(threatMap));
+    for (std::list<std::shared_ptr<threatMapEntry_t>>::iterator it=idxList.begin(); it != idxList.end(); ++it)
     {   
         // For now, its just the king that uses this function and it does not care
         // which piece is attacking, just that there is a threat. May have come back
@@ -186,8 +218,7 @@ void ChessBoard::UpdateRooks(moveType_t *moveApplied)
         while(foundPiece && tempIdx < NUM_BOARD_INDICES)
         {
             // Create the entry and add it to the list of threatMapEntrys
-            auto entry = std::make_shared<threatMapEntry_t>(threatMapEntry_t{ pt, rookIdx });
-            std::get<tempIdx>(std::get<currentSearchDepth>(threatMap)).add(entry); // May have to do more here
+            ThreatMap_AddThreatToMap(pt, rookIdx, tempIdx);
 
             // We cannot look any further down and therefore should break
             if((this->occupied & (shift << tempIdx)) != 0)
@@ -222,8 +253,10 @@ void ChessBoard::UpdateBishops(moveType_t *moveApplied)
         return;
     }
 
-    std::list<threatMapEntry_t> idxList = std::get<moveApplied->startIdx>(std::get<currentSearchDepth>(threatMap));
-    for (std::list<threatMapEntry_t>::iterator it=idxList.begin(); it != idxList.end(); ++it)
+    std::list<std::shared_ptr<threatMapEntry_t>> idxList 
+        = std::get<moveApplied->startIdx>(std::get<currentSearchDepth>(threatMap));
+
+    for (std::list<std::shared_ptr<threatMapEntry_t>>::iterator it=idxList.begin(); it != idxList.end(); ++it)
     {   
         if(*it->threatPt != WHITE_BISHOP && *it->threatPt != BLACK_BISHOP)
         {
@@ -268,8 +301,7 @@ void ChessBoard::UpdateBishops(moveType_t *moveApplied)
             tempIdx += dir;
         
             // Create the entry and add it to the list of threatMapEntrys
-            auto entry = std::make_shared<threatMapEntry_t>(threatMapEntry_t{ pt, bishopIdx });
-            std::get<tempIdx>(std::get<currentSearchDepth>(threatMap)).add(entry); // May have to do more here
+            ThreatMap_AddThreatToMap(pt, bishopIdx, tempIdx);
 
             // We cannot look any further down and therefore should break
             if((this->occupied & (shift << tempIdx)) != 0)
@@ -302,7 +334,9 @@ void ChessBoard::UpdateQueens(moveType_t *moveApplied)
         return;
     }
 
-    std::list<threatMapEntry_t> idxList = std::get<moveApplied->startIdx>(std::get<currentSearchDepth>(threatMap));
+    std::list<threatMapEntry_t> idxList 
+        = std::get<moveApplied->startIdx>(std::get<currentSearchDepth>(threatMap));
+
     for (std::list<threatMapEntry_t>::iterator it=idxList.begin(); it != idxList.end(); ++it)
     {   
         if(*it->threatPt != WHITE_QUEEN && *it->threatPt != BLACK_QUEEN)
@@ -368,8 +402,7 @@ void ChessBoard::UpdateQueens(moveType_t *moveApplied)
             tempIdx += dir;
 
             // Create the entry and add it to the list of threatMapEntrys
-            auto entry = std::make_shared<threatMapEntry_t>(threatMapEntry_t{ pt, queenIdx });
-            std::get<tempIdx>(std::get<currentSearchDepth>(threatMap)).add(entry); // May have to do more here
+            ThreatMap_AddThreatToMap(pt, queenIdx, tempIdx);
 
             // We cannot look any further down and therefore should break
             if((this->occupied & (shift << tempIdx)) != 0)
