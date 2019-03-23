@@ -14,9 +14,20 @@ static std::array<std::array<std::list<std::shared_ptr<threatMapEntry_t>, NUM_BO
 
 static uint8_t currentSearchDepth = 0;
 
-static void ThreatMap_RemoveThreatFromMap(uint8_t pt, uint8_t threatIdx, uint8_t squareIdx)
+/**
+ * Removes a provided threat from the threatmap
+ * 
+ * @param pt:           The piecetype of the threat
+ * @param threatIdx:    The index of the threat
+ * @param mapIdx:       The index to remove the threat from
+ */
+static void ThreatMap_RemoveThreatFromMap(uint8_t pt, uint8_t threatIdx, uint8_t mapIdx)
 {
-    std::list<std::shared_ptr<threatMapEntry_t>> idxList = std::get<squareIdx>(std::get<currentSearchDepth>(threatMap));
+    Util_Assert(pt < NUM_PIECE_TYPES, "Bad piecetype provided to ThreatMap_RemoveThreatFromMap");
+    Util_Assert(threatIdx < NUM_BOARD_INDICES, "Bad threatIdx provided to ThreatMap_RemoveThreatFromMap");
+    Util_Assert(mapIdx < NUM_BOARD_INDICES, "Bad mapIdx provided to ThreatMap_RemoveThreatFromMap");
+
+    std::list<std::shared_ptr<threatMapEntry_t>> idxList = std::get<mapIdx>(std::get<currentSearchDepth>(threatMap));
     std::list<std::shared_ptr<threatMapEntry_t>>::iterator it = idxList.begin();
     while (it != idxList.end())
     {
@@ -30,8 +41,19 @@ static void ThreatMap_RemoveThreatFromMap(uint8_t pt, uint8_t threatIdx, uint8_t
     Util_Assert(false, "Unable to find specific threat we wanted to remove from threatmap");
 }
 
-static void ThreatMap_AddThreatToMap(uint8_t pt,  uint8_t threatIdx, uint8_t squareIdx)
+/**
+ * Adds a provided threat from the threatmap
+ * 
+ * @param pt:           The piecetype of the threat
+ * @param threatIdx:    The index of the threat
+ * @param mapIdx:       The index to remove the threat from
+ */
+static void ThreatMap_AddThreatToMap(uint8_t pt,  uint8_t threatIdx, uint8_t mapIdx)
 {
+    Util_Assert(pt < NUM_PIECE_TYPES, "Bad piecetype provided to ThreatMap_AddThreatToMap");
+    Util_Assert(threatIdx < NUM_BOARD_INDICES, "Bad threatIdx provided to ThreatMap_AddThreatToMap");
+    Util_Assert(mapIdx < NUM_BOARD_INDICES, "Bad mapIdx provided to ThreatMap_AddThreatToMap");
+
     auto entry = std::make_shared<threatMapEntry_t>(threatMapEntry_t{ pt, idx });
 
 #if DEBUG_BUILD
