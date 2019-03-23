@@ -48,10 +48,10 @@ void ChessBoard::UpdateThreatMap(moveType_t *moveApplied)
 
     if(IsIndexUnderThreat(currentSearchDepth, moveApplied->startIdx) == true)
     {
-        // Update threat map for every attacking piece, this can include
-        // rooks, bishops, and queens
-
-        
+        // If there are none of these PTs attacking this square, they will return quickly
+        UpdateRooks();
+        UpdateBishops();
+        UpdateQueens();
     }
 
     // Update the threat map for our given piece that just moved
@@ -132,13 +132,11 @@ void ChessBoard::UpdateRooks(moveType_t *moveApplied)
 {
     Util_Assert(moveApplied != NULL, "Move applied to UpdateRooks was NULL");
 
-    //Just fan out here in all directions looking for a possible match
     uint8_t pt;
-    uint64_t rookMask, shift = 1, rookMask = this->pieces[WHITE_ROOKS] | this->pieces[BLACK_ROOKS];
+    uint64_t rookIdx, shift = 1, rookMask = this->pieces[WHITE_ROOKS] | this->pieces[BLACK_ROOKS];
     uint64_t lslVal = (8 - (moveApplied->startIdx % 8)) % 8;
-    uint64_t temp;
+    uint64_t tempIdx;
     bool foundPiece = false;
-    bool goLeft = false; 
     int  dir = 0;
 
     // If there actually are no pieces of this piecetype on the board
@@ -149,7 +147,6 @@ void ChessBoard::UpdateRooks(moveType_t *moveApplied)
     }
 
     // Determine if we have a rook within our line of vision from this end idx from all teams
-
     while(rookMask != 0)
     {
         // For each of our rooks
@@ -157,11 +154,11 @@ void ChessBoard::UpdateRooks(moveType_t *moveApplied)
         rookMask ^= (shift << rookIdx);
 
         // Is this rook white or black
-        if(rookMask & this->pieces[WHITE_ROOK] > 0)
+        if((shift << rookIdx) & this->pieces[WHITE_ROOK] > 0)
         {
             pt = WHITE_ROOK;
         }
-        else if(rookMask & this->pieces[BLACK_ROOK] > 0)
+        else if((shift << rookIdx) & this->pieces[BLACK_ROOK] > 0)
         {
             pt = BLACK_ROOK;
         }
@@ -171,34 +168,35 @@ void ChessBoard::UpdateRooks(moveType_t *moveApplied)
         }
     
         // Is this rook in our column
-        if( (COLUMN_MASK >> LSL_VAL) & (shift << rookIdx))
+        if( (COLUMN_MASK >> lslVal) & (shift << rookIdx))
         {
             (rookIdx > startIdx) ? dir = -8 : dir = 8;
-            temp = moveApplied->startIdx + dir;
+            tempIdx = moveApplied->startIdx + dir;
             foundPiece = true;
         }
         // Is this rook in our row
         else if((ROW_MASK << moveApplied->startIdx) & (shift << rookIdx))
         {
             (rookIdx > startIdx) ? dir = -1 : dir = 1;
-            temp = moveApplied->startIdx + dir;
+            tempIdx = moveApplied->startIdx + dir;
             foundPiece = true;
         }
 
-        while(foundPiece && temp < NUM_BOARD_INDICES)
+        // @todo: this is wrong come back to this
+        while(foundPiece && tempIdx < NUM_BOARD_INDICES)
         {
             // Create the entry and add it to the list of threatMapEntrys
             auto entry = std::make_shared<threatMapEntry_t>(threatMapEntry_t{ pt, rookIdx });
-            std::get<idx>(std::get<currentSearchDepth>(threatMap)).add(entry); // May have to do more here
+            std::get<tempIdx>(std::get<currentSearchDepth>(threatMap)).add(entry); // May have to do more here
 
             // We cannot look any further down and therefore should break
-            if((this->occupied & (shift << temp)) != 0)
+            if((this->occupied & (shift << tempIdx)) != 0)
             {
                 break;
             }
-            // Since temp is unsigned 64 bit we will wrap to MAX_INT when we hit the bottom row or go over the number
+            // Since tempIdx is unsigned 64 bit we will wrap to MAX_INT when we hit the bottom row or go over the number
             // indices if we hit the top row
-            temp += dir;
+            tempIdx += dir;
         }
     }
 }
@@ -211,7 +209,75 @@ void ChessBoard::UpdateRooks(moveType_t *moveApplied)
  */
 void ChessBoard::UpdateBishops(moveType_t *moveApplied)
 {
+    uint8_t pt;
+    uint64_t bishopIdx, shift = 1, bishopMask = this->pieces[WHITE_BISHOP] | this->pieces[BLACK_BISHOP];
+    uint64_t tempIdx;
+    bool goingLeft = false;
+    int dir = 0;
+
+    // If there actually are no pieces of this piecetype on the board
+    // then just immediately return, no reason to search
+    if(bishopMask == 0)
+    {
+        return;
+    }
+
+    std::list<threatMapEntry_t> idxList = std::get<moveApplied->startIdx>(std::get<currentSearchDepth>(threatMap));
+    for (std::list<threatMapEntry_t>::iterator it=idxList.begin(); it != idxList.end(); ++it)
+    {   
+        if(*it->threatPt != WHITE_BISHOP && *it->threatPt != BLACK_BISHOP)
+        {
+            continue;
+        }
+        bishopIdx = *it->threatIdx;
+        pt = *it->threatPt;
     
+        // So now we have a bishop which is certainly attacking us, and we want to update the 
+        // threatmap past the piece we just moved. So which direction to we go
+        if(bishopIdx > moveApplied->startIdx)
+        {
+            if((bishopIdx % 8) > (moveApplied->startIdx % 8))
+            {
+                dir = -9;
+                goingLeft = true;
+            }
+            else
+            {
+                dir = -7;
+                goingLeft = false;
+            }
+        }
+        else
+        {
+            if((bishopIdx % 8) > (moveApplied->startIdx % 8))
+            {
+                dir = 7;
+                goingLeft = true;
+            }
+            else
+            {
+                dir = 9;
+                goingLeft = false;
+            }
+        }
+        tempIdx = moveApplied->startIdx;
+        // Can we travel in the direction we want to go in
+        while((tempIdx < NUM_BOARD_INDICES)
+            && ((goingLeft && (tempIdx % 8 > 1)) || (!goingLeft && (tempIdx % 8 < 7)) ))
+        {
+            tempIdx += dir;
+        
+            // Create the entry and add it to the list of threatMapEntrys
+            auto entry = std::make_shared<threatMapEntry_t>(threatMapEntry_t{ pt, bishopIdx });
+            std::get<tempIdx>(std::get<currentSearchDepth>(threatMap)).add(entry); // May have to do more here
+
+            // We cannot look any further down and therefore should break
+            if((this->occupied & (shift << tempIdx)) != 0)
+            {
+                break;
+            }
+        }
+    }
 }
 
 /**
@@ -223,4 +289,93 @@ void ChessBoard::UpdateBishops(moveType_t *moveApplied)
 void ChessBoard::UpdateQueens(moveType_t *moveApplied)
 {
     
+    uint8_t pt;
+    uint64_t queenIdx, shift = 1, queenMask = this->pieces[WHITE_QUEEN] | this->pieces[BLACK_QUEEN];
+    uint64_t tempIdx;
+    uint8_t moveState = 0; // 0 == diagonal, 1 == row, 2 == column
+    int dir = 0;
+
+    // If there actually are no pieces of this piecetype on the board
+    // then just immediately return, no reason to search
+    if(queenMask == 0)
+    {
+        return;
+    }
+
+    std::list<threatMapEntry_t> idxList = std::get<moveApplied->startIdx>(std::get<currentSearchDepth>(threatMap));
+    for (std::list<threatMapEntry_t>::iterator it=idxList.begin(); it != idxList.end(); ++it)
+    {   
+        if(*it->threatPt != WHITE_QUEEN && *it->threatPt != BLACK_QUEEN)
+        {
+            continue;
+        }
+        queenIdx = *it->threatIdx;
+        pt = *it->threatPt;
+    
+        // If the queen attacking like a bishop would attack or like a rook
+        if( (COLUMN_MASK >> lslVal) & (shift << queenIdx))
+        {
+            (bishopIdx > startIdx) ? dir = -8 : dir = 8;
+            moveState = 2;
+        }
+        // Is this queen in our row
+        else if((ROW_MASK << moveApplied->startIdx) & (shift << queenIdx))
+        {
+            (queenIdx > startIdx) ? dir = -1 : dir = 1;
+            moveState = 1;
+        }
+        else
+        {
+            // We know that it is a diagonal attack
+            moveState = 0;
+            if(queenIdx > moveApplied->startIdx)
+            {
+                if((queenIdx % 8) > (moveApplied->startIdx % 8))
+                {
+                    dir = -9;
+                    goingLeft = true;
+                }
+                else
+                {
+                    dir = -7;
+                    goingLeft = false;
+                }
+            }
+            else
+            {
+                if((queenIdx % 8) > (moveApplied->startIdx % 8))
+                {
+                    dir = 7;
+                    goingLeft = true;
+                }
+                else
+                {
+                    dir = 9;
+                    goingLeft = false;
+                }
+            }
+        }
+
+        tempIdx = moveApplied->startIdx;
+
+        // Sucks but I am too tired to think of a better way right now @todo: Fix this
+        while((tempIdx < NUM_BOARD_INDICES)
+            && (((goingLeft && (tempIdx % 8 > 1)) || (!goingLeft && (tempIdx % 8 < 7))) // Valid diagonal moves
+            || (moveState == 1 && (tempIdx + dir % 8 != 0)) // Valid row moves
+            || (moveState == 2 && (tempIdx + dir < NUM_BOARD_INDICES)))) // Valid column moves
+        {
+
+            tempIdx += dir;
+
+            // Create the entry and add it to the list of threatMapEntrys
+            auto entry = std::make_shared<threatMapEntry_t>(threatMapEntry_t{ pt, queenIdx });
+            std::get<tempIdx>(std::get<currentSearchDepth>(threatMap)).add(entry); // May have to do more here
+
+            // We cannot look any further down and therefore should break
+            if((this->occupied & (shift << tempIdx)) != 0)
+            {
+                break;
+            }
+        }
+    }
 }
