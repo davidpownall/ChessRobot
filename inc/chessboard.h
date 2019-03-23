@@ -112,11 +112,18 @@ public:
     void GenerateQueenMoves(uint8_t pt, moveType_t **moveList);
     void GenerateKingMoves(uint8_t pt, moveType_t **moveList);
 
+    // @todo: Perhaps split these all off into their own class
     void GenerateThreatMap(void);
     void UpdateThreatMap(moveType_t *moveApplied);
     void RevertThreatMap();
     bool IsIndexUnderThreat(uint8_t idx);
     bool IsIndexUnderThreat(uint8_t searchDepth, uint8_t idx, bool whiteThreat);
+    void GeneratePawnThreat(uint8_t pt, uint8_t idx);
+    void GenerateRookThreat(uint8_t pt, uint8_t idx);
+    void GenerateKnightThreat(uint8_t pt, uint8_t idx);
+    void GenerateBishopThreat(uint8_t pt, uint8_t idx);
+    void GenerateQueenThreat(uint8_t pt, uint8_t idx);
+    void GenerateKingThreat(uint8_t pt, uint8_t idx);
 
 };
 

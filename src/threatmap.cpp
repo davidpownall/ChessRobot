@@ -69,6 +69,36 @@ static void ThreatMap_AddThreatToMap(uint8_t pt,  uint8_t threatIdx, uint8_t map
     std::get<tempIdx>(std::get<currentSearchDepth>(threatMap)).add(entry);
 }
 
+void ChessBoard::GeneratePawnThreat(uint8_t pt, uint8_t idx)
+{
+
+}
+
+void ChessBoard::GenerateRookThreat(uint8_t pt, uint8_t idx)
+{
+
+}
+
+void ChessBoard::GenerateKnightThreat(uint8_t pt, uint8_t idx)
+{
+
+}
+
+void ChessBoard::GenerateBishopThreat(uint8_t pt, uint8_t idx)
+{
+
+}
+
+void ChessBoard::GenerateQueenThreat(uint8_t pt, uint8_t idx)
+{
+
+}
+
+void ChessBoard::GenerateKingThreat(uint8_t pt, uint8_t idx)
+{
+
+}
+
 /**
  * Creates the initial threat map for a chess board
  */
