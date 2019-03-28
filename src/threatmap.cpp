@@ -9,6 +9,28 @@
 #include "chessboard_defs.h"
 #include "chessboard.h"
 
+/**
+ * Some thoughts:
+ * 
+ * Each piece type needs a specific function for finding all of the threats associated with it,
+ * but in reality this operation is actually shared with the function which removes all of the the
+ * given threats from a location. So really what it is a generic update threat for a given piece type,
+ * with the paramater being whether or not to remove all threats for that piece to add them.
+ * 
+ */
+
+
+typedef void (*generator)(uint8_t pt, uint8_t idx, uint64_t occupied, bool addThreat) threatFunc_t;
+static threatFunc_t threatJumpTable[NUM_PIECE_TYPES] = 
+    {
+        ThreatMap_UpdatePawnThreat,
+        ThreatMap_UpdateRookThreat,
+        ThreatMap_UpdateKnightThreat,
+        ThreatMap_UpdateBishopThreat,
+        ThreatMap_UpdateQueenThreat,
+        ThreatMap_UpdateKingThreat
+    }
+
 // Our persistent threat map for the life of the program. Index 0 is the current state.
 static std::array<std::array<std::list<std::shared_ptr<threatMapEntry_t>, NUM_BOARD_INDICES>, SEARCH_DEPTH + 1> threatMap;
 
@@ -69,52 +91,83 @@ static void ThreatMap_AddThreatToMap(uint8_t pt,  uint8_t threatIdx, uint8_t map
     std::get<tempIdx>(std::get<currentSearchDepth>(threatMap)).add(entry);
 }
 
-void ChessBoard::GeneratePawnThreat(uint8_t pt, uint8_t idx)
+static void ThreatMap_UpdatePawnThreat(uint8_t pt, uint8_t idx, uint64_t occupied, bool addThreat)
 {
 
 }
 
-void ChessBoard::GenerateRookThreat(uint8_t pt, uint8_t idx)
+static void ThreatMap_UpdateRookThreat(uint8_t pt, uint8_t idx, uint64_t occupied, bool addThreat)
 {
 
 }
 
-void ChessBoard::GenerateKnightThreat(uint8_t pt, uint8_t idx)
+static void ThreatMap_UpdateKnightThreat(uint8_t pt, uint8_t idx, uint64_t occupied, bool addThreat)
 {
 
 }
 
-void ChessBoard::GenerateBishopThreat(uint8_t pt, uint8_t idx)
+static void ThreatMap_UpdateBishopThreat(uint8_t pt, uint8_t idx, uint64_t occupied, bool addThreat)
 {
 
 }
 
-void ChessBoard::GenerateQueenThreat(uint8_t pt, uint8_t idx)
+static void ThreatMap_UpdateQueenThreat(uint8_t pt, uint8_t idx, uint64_t occupied, bool addThreat)
 {
 
 }
 
-void ChessBoard::GenerateKingThreat(uint8_t pt, uint8_t idx)
+static void ThreatMap_UpdateKingThreat(uint8_t pt, uint8_t idx, uint64_t occupied, bool addThreat)
 {
 
+}
+
+static void ThreatMap_UpdatePieceThreat(
+    uint64_t pieces, 
+    bool addThreat
+    )
+{
+    uint64_t mask, pieceIdx, shift = 1;
+
+    // Generate threats for provided piece type;
+    while(pieces != 0)
+    {
+        pieceIdx = __builtin_ctz(mask);
+        pieces ^= (shift << pieceIdx);
+        threatJumpTable[pt](pt, pieceIdx, occupied, addThreat);
+    }
 }
 
 /**
- * Creates the initial threat map for a chess board
+ * Creates the initial threat map for a chess board. Called only during initialization
  */
 void ChessBoard::GenerateThreatMap(void)
 {
+    uint64_t mask, pieceIdx, shift = 1;
+
     // Generate pawn threats
+    ThreatMap_UpdatePieceThreat(this->pieces[WHITE_PAWN], true);
+    ThreatMap_UpdatePieceThreat(this->pieces[BLACK_PAWN], true);
 
     // Generate rook threats
+    ThreatMap_UpdatePieceThreat(this->pieces[WHITE_ROOK], true);
+    ThreatMap_UpdatePieceThreat(this->pieces[BLACK_ROOK], true);
 
     // Generate bishop threats
+    ThreatMap_UpdatePieceThreat(this->pieces[WHITE_BISHOP], true);
+    ThreatMap_UpdatePieceThreat(this->pieces[BLACK_BISHOP], true);
 
     // Generate knight threats
+    ThreatMap_UpdatePieceThreat(this->pieces[WHITE_KNIGHT], true);
+    ThreatMap_UpdatePieceThreat(this->pieces[BLACK_KNIGHT], true);
 
     // Generate queen threats
-
+    ThreatMap_UpdatePieceThreat(this->pieces[WHITE_QUEEN], true);
+    ThreatMap_UpdatePieceThreat(this->pieces[BLACK_QUEEN], true);
+    
     // Generate king threats
+    ThreatMap_UpdatePieceThreat(this->pieces[WHITE_KING], true);
+    ThreatMap_UpdatePieceThreat(this->pieces[BLACK_KING], true);
+
 }
 
 /**
@@ -124,7 +177,20 @@ void ChessBoard::GenerateThreatMap(void)
  */
 void ChessBoard::UpdateThreatMap(moveType_t *moveApplied)
 {
+    uint8_t enemyStart;
+
     Util_Assert(moveApplied != NULL, "Move passed to threatmap update was NULL!");
+    Util_Assert(moveApplied->pt < NUM_PIECE_TYPES, "Move with bad PT given to UpdateThreatMap")
+
+    (moveApplied->pt < BLACK_PAWN) ? enemyStart = BLACK_PAWN : enemyStart = WHITE_PAWN;
+    
+    /**
+     * The threatmap for any square that this piece is threatening needs to be updated.
+     * Obviously there could be overlap between moves, so there is a useful optimization
+     * we can make, but tbh this is probably good enough for now.
+     */
+
+    threatJumpTable[moveApplied->pt](moveApplied->pt, moveApplied->startIdx, this->occupied, false);
 
     /**
      * Check our current index for any present threat. If there is none, then we do
@@ -132,13 +198,14 @@ void ChessBoard::UpdateThreatMap(moveType_t *moveApplied)
      */
     if(IsIndexUnderThreat(currentSearchDepth, moveApplied->startIdx) == true)
     {
-        // If there are none of these PTs attacking this square, they will return quickly
-        UpdateRooks();
-        UpdateBishops();
-        UpdateQueens();
-    }
+        // @todo: still target this for refactor
+        ThreatMap_UpdatePieceThreat(this->pieces[enemyStart + 1], true);
+        ThreatMap_UpdatePieceThreat(this->pieces[enemyStart + 3], true);
+        ThreatMap_UpdatePieceThreat(this->pieces[enemyStart + 4], true);
+    }    
 
-    // Update the threat map for our given piece that just moved
+    // Update the threat map for our given piece that just moved --> Compiler "should" create a jump table for this
+    threatJumpTable[moveApplied->pt](moveApplied->pt, moveApplied->endIdx, this->occupied, true);
 
 }
 
