@@ -3,7 +3,6 @@
 #include <iostream>
 #include <array>
 #include <list>
-#include <get>
 #include <memory>
 #include "util.h"
 #include "chessboard_defs.h"
@@ -19,7 +18,7 @@
  * 
  */
 
-
+// Jump table so we can quickly translate from piecetype to specific threat update function
 typedef void (*generator)(uint8_t pt, uint8_t idx, uint64_t occupied, bool addThreat) threatFunc_t;
 static threatFunc_t threatJumpTable[NUM_PIECE_TYPES] = 
     {
@@ -30,6 +29,13 @@ static threatFunc_t threatJumpTable[NUM_PIECE_TYPES] =
         ThreatMap_UpdateQueenThreat,
         ThreatMap_UpdateKingThreat
     }
+
+typedef enum
+{
+    THREAT_DELETE, // Delete all threats for a given piece
+    THREAT_CREATE, // Create threats for a given piece
+    THREAT_UPDATE  // Update theats for a given piece, ignores already created
+} threatOpCode_t;
 
 // Our persistent threat map for the life of the program. Index 0 is the current state.
 static std::array<std::array<std::list<std::shared_ptr<threatMapEntry_t>, NUM_BOARD_INDICES>, SEARCH_DEPTH + 1> threatMap;
@@ -70,61 +76,250 @@ static void ThreatMap_RemoveThreatFromMap(uint8_t pt, uint8_t threatIdx, uint8_t
  * @param threatIdx:    The index of the threat
  * @param mapIdx:       The index to remove the threat from
  */
-static void ThreatMap_AddThreatToMap(uint8_t pt,  uint8_t threatIdx, uint8_t mapIdx)
+static void ThreatMap_AddThreatToMap(uint8_t pt,  uint8_t threatIdx, uint8_t mapIdx, threatOpCode_t opCode)
 {
     Util_Assert(pt < NUM_PIECE_TYPES, "Bad piecetype provided to ThreatMap_AddThreatToMap");
     Util_Assert(threatIdx < NUM_BOARD_INDICES, "Bad threatIdx provided to ThreatMap_AddThreatToMap");
     Util_Assert(mapIdx < NUM_BOARD_INDICES, "Bad mapIdx provided to ThreatMap_AddThreatToMap");
+    Util_Assert(opCode != THREAT_DELETE, "Wrong API for threatmap");
 
     auto entry = std::make_shared<threatMapEntry_t>(threatMapEntry_t{ pt, idx });
 
-#if DEBUG_BUILD
-    // This is worth checking for in DEBUG_BUILDs, but the performance hit is probably not worth it
-    std::list<std::shared_ptr<threatMapEntry_t>> idxList = std::get<idx>(std::get<currentSearchDepth>(threatMap));
-    for (std::list<std::shared_ptr<threatMapEntry_t>>::iterator it=idxList.begin(); it != idxList.end(); ++it)
-    {   
-        Util_Assert((pt != *it->threatPt) || (idx != *it->threatIdx),
-                     "Duplicate threat found when adding threat");
+    // if we have the update opcode, iterate through the list to see if we already have an entry here
+    if(opCode == THREAT_UPDATE)
+    {
+        std::list<std::shared_ptr<threatMapEntry_t>> idxList = std::get<idx>(std::get<currentSearchDepth>(threatMap));
+        for (std::list<std::shared_ptr<threatMapEntry_t>>::iterator it=idxList.begin(); it != idxList.end(); ++it)
+        {   
+            if((pt == *it->threatPt) && (idx == *it->threatIdx))
+            {
+                return;
+            }
+        }
     }
-#endif
 
+    // If there is no duplicate OR if we have the create update, just create the entry
     std::get<tempIdx>(std::get<currentSearchDepth>(threatMap)).add(entry);
 }
 
-static void ThreatMap_UpdatePawnThreat(uint8_t pt, uint8_t idx, uint64_t occupied, bool addThreat)
+static void ThreatMap_UpdatePawnThreat(uint8_t pt, uint8_t idx, uint64_t occupied, threatOpCode_t opCode)
 {
+    // @todo: 
+}
+
+static void ThreatMap_UpdateRookThreat(uint8_t pt, uint8_t idx, uint64_t occupied, threatOpCode_t opCode)
+{
+    uint64_t tempIdx, shift = 1;
+
+    tempIdx = idx;
+    // left
+    do
+    {
+        // on the left side of the board, can't go that way
+        if(tempIdx % 8 == 0)
+        {
+            break;
+        }
+
+        --tempIdx;
+        switch(opCode)
+        {
+            case THREAT_DELETE:
+                ThreatMap_RemoveThreatFromMap(pt, idx, tempIdx);
+                break;
+            case THREAT_CREATE:
+            case THREAT_UPDATE:
+                ThreatMap_AddThreatToMap(pt, idx, tempIdx, opCode);
+                break;
+        }
+    } while((tempIdx % 8 > 0) && ((occupied & (shift << tempIdx)) == 0));
+
+    // right
+    tempIdx = idx;
+    do
+    {
+        // on the right side of the board, can't go that way
+        if(tempIdx % 8 == 7)
+        {
+            break;
+        }
+
+        ++tempIdx;
+        switch(opCode)
+        {
+            case THREAT_DELETE:
+                ThreatMap_RemoveThreatFromMap(pt, idx, tempIdx);
+                break;
+            case THREAT_CREATE:
+            case THREAT_UPDATE:
+                ThreatMap_AddThreatToMap(pt, idx, tempIdx, opCode);
+                break;
+        }
+    } while((temp % 8 < 7) && ((occupied & (shift << tempIdx)) == 0));
+
+    // down
+    tempIdx = idx;
+    do
+    {
+        // Cannot go down
+        if(tempIdx < 8)
+        {
+            break;
+        }
+
+        tempIdx -= 8;
+        switch(opCode)
+        {
+            case THREAT_DELETE:
+                ThreatMap_RemoveThreatFromMap(pt, idx, tempIdx);
+                break;
+            case THREAT_CREATE:
+            case THREAT_UPDATE:
+                ThreatMap_AddThreatToMap(pt, idx, tempIdx, opCode);
+                break;
+        }
+    } while((temp >= 8) && ((occupied & (shift << tempIdx)) == 0));
+
+    // up
+    tempIdx = idx;
+    do
+    {
+        // Cannot go up
+        if(tempIdx > 54)
+        {
+            break;
+        }
+
+        tempIdx += 8;
+        switch(opCode)
+        {
+            case THREAT_DELETE:
+                ThreatMap_RemoveThreatFromMap(pt, idx, tempIdx);
+                break;
+            case THREAT_CREATE:
+            case THREAT_UPDATE:
+                ThreatMap_AddThreatToMap(pt, idx, tempIdx, opCode);
+                break;
+        }
+    } while((temp <= 54) && && ((occupied & (shift << tempIdx)) == 0));
+}
+
+static void ThreatMap_UpdateKnightThreat(uint8_t pt, uint8_t idx, uint64_t occupied, threatOpCode_t opCode)
+{
+    // @todo: 
+}
+
+static void ThreatMap_UpdateBishopThreat(uint8_t pt, uint8_t idx, uint64_t occupied, threatOpCode_t opCode)
+{
+    uint64_t tempIdx, shift = 1;
+
+    // Down left
+    tempIdx = idx;
+    do
+    {
+        // Either left column or bottom row
+        if(tempIdx % 8 == 0 || tempIdx < 8)
+        {
+            break;
+        }
+
+        tempIdx -= 9;
+        switch(opCode)
+        {
+            case THREAT_DELETE:
+                ThreatMap_RemoveThreatFromMap(pt, idx, tempIdx);
+                break;
+            case THREAT_CREATE:
+            case THREAT_UPDATE:
+                ThreatMap_AddThreatToMap(pt, idx, tempIdx, opCode);
+                break;
+        }
+
+    } while((bishopIdx >) 0 && ((occupied & (shift << tempIdx)) == 0));
+
+    // Down right
+    tempIdx = idx;
+    do
+    {
+        // Either right column or bottom row
+        if(tempIdx % 8 == 7 || tempIdx < 8)
+        {
+            break;
+        }
+
+        tempIdx -= 7;
+        switch(opCode)
+        {
+            case THREAT_DELETE:
+                ThreatMap_RemoveThreatFromMap(pt, idx, tempIdx);
+                break;
+            case THREAT_CREATE:
+            case THREAT_UPDATE:
+                ThreatMap_AddThreatToMap(pt, idx, tempIdx, opCode);
+                break;
+        }
+    } while((tempIdx > 0) && ((occupied & (shift << tempIdx)) == 0));
+
+    // Up left
+    tempIdx = idx;
+    do
+    {
+        // Either left column or top row
+        if(tempIdx % 8 == 0 || tempIdx > 55)
+        {
+            break;
+        }
+
+        tempIdx += 7;
+        switch(opCode)
+        {
+            case THREAT_DELETE:
+                ThreatMap_RemoveThreatFromMap(pt, idx, tempIdx);
+                break;
+            case THREAT_CREATE:
+            case THREAT_UPDATE:
+                ThreatMap_AddThreatToMap(pt, idx, tempIdx, opCode);
+                break;
+        }
+    } while((tempIdx < NUM_BOARD_INDICES) && ((occupied & (shift << tempIdx)) == 0));
+
+    // Up right
+    tempIdx = idx;
+    do
+    {
+        if(tempIdx % 8 == 7 || tempIdx > 55)
+        {
+            break;
+        }
+
+        tempIdx += 9;
+        switch(opCode)
+        {
+            case THREAT_DELETE:
+                ThreatMap_RemoveThreatFromMap(pt, idx, tempIdx);
+                break;
+            case THREAT_CREATE:
+            case THREAT_UPDATE:
+                ThreatMap_AddThreatToMap(pt, idx, tempIdx, opCode);
+                break;
+        }
+    } while((tempIdx < NUM_BOARD_INDICES) && ((occupied & (shift << tempIdx)) == 0));
 
 }
 
-static void ThreatMap_UpdateRookThreat(uint8_t pt, uint8_t idx, uint64_t occupied, bool addThreat)
+static void ThreatMap_UpdateQueenThreat(uint8_t pt, uint8_t idx, uint64_t occupied, threatOpCode_t opCode)
 {
-
+    // Queen behavior can just be simplified to rook and bishop
+    ThreatMap_UpdateBishopThreat(pt, idx, occupied, opCode);
+    ThreatMap_UpdateRookThreat(pt, idx, occupied, opCode);
 }
 
-static void ThreatMap_UpdateKnightThreat(uint8_t pt, uint8_t idx, uint64_t occupied, bool addThreat)
+static void ThreatMap_UpdateKingThreat(uint8_t pt, uint8_t idx, uint64_t occupied, threatOpCode_t opCode)
 {
-
+    // @todo: 
 }
 
-static void ThreatMap_UpdateBishopThreat(uint8_t pt, uint8_t idx, uint64_t occupied, bool addThreat)
-{
-
-}
-
-static void ThreatMap_UpdateQueenThreat(uint8_t pt, uint8_t idx, uint64_t occupied, bool addThreat)
-{
-
-}
-
-static void ThreatMap_UpdateKingThreat(uint8_t pt, uint8_t idx, uint64_t occupied, bool addThreat)
-{
-
-}
-
-static void ThreatMap_UpdatePieceThreat(
-    uint64_t pieces, 
-    bool addThreat
-    )
+static void ThreatMap_UpdatePieceThreat(uint8_t pt, uint64_t pieces, threatOpCode_t opCode)
 {
     uint64_t mask, pieceIdx, shift = 1;
 
@@ -133,7 +328,7 @@ static void ThreatMap_UpdatePieceThreat(
     {
         pieceIdx = __builtin_ctz(mask);
         pieces ^= (shift << pieceIdx);
-        threatJumpTable[pt](pt, pieceIdx, occupied, addThreat);
+        threatJumpTable[pt % 6](pt, pieceIdx, occupied, addThreat);
     }
 }
 
@@ -145,28 +340,28 @@ void ChessBoard::GenerateThreatMap(void)
     uint64_t mask, pieceIdx, shift = 1;
 
     // Generate pawn threats
-    ThreatMap_UpdatePieceThreat(this->pieces[WHITE_PAWN], true);
-    ThreatMap_UpdatePieceThreat(this->pieces[BLACK_PAWN], true);
+    ThreatMap_UpdatePieceThreat(WHITE_PAWN, this->pieces[WHITE_PAWN], true);
+    ThreatMap_UpdatePieceThreat(BLACK_PAWN, this->pieces[BLACK_PAWN], true);
 
     // Generate rook threats
-    ThreatMap_UpdatePieceThreat(this->pieces[WHITE_ROOK], true);
-    ThreatMap_UpdatePieceThreat(this->pieces[BLACK_ROOK], true);
+    ThreatMap_UpdatePieceThreat(WHITE_ROOK, this->pieces[WHITE_ROOK], true);
+    ThreatMap_UpdatePieceThreat(BLACK_PAWN, this->pieces[BLACK_ROOK], true);
 
     // Generate bishop threats
-    ThreatMap_UpdatePieceThreat(this->pieces[WHITE_BISHOP], true);
-    ThreatMap_UpdatePieceThreat(this->pieces[BLACK_BISHOP], true);
+    ThreatMap_UpdatePieceThreat(WHITE_BISHOP, this->pieces[WHITE_BISHOP], true);
+    ThreatMap_UpdatePieceThreat(BLACK_BISHOP, this->pieces[BLACK_BISHOP], true);
 
     // Generate knight threats
-    ThreatMap_UpdatePieceThreat(this->pieces[WHITE_KNIGHT], true);
-    ThreatMap_UpdatePieceThreat(this->pieces[BLACK_KNIGHT], true);
+    ThreatMap_UpdatePieceThreat(WHITE_KNIGHT, this->pieces[WHITE_KNIGHT], true);
+    ThreatMap_UpdatePieceThreat(BLACK_KNIGHT, this->pieces[BLACK_KNIGHT], true);
 
     // Generate queen threats
-    ThreatMap_UpdatePieceThreat(this->pieces[WHITE_QUEEN], true);
-    ThreatMap_UpdatePieceThreat(this->pieces[BLACK_QUEEN], true);
+    ThreatMap_UpdatePieceThreat(WHITE_QUEEN, this->pieces[WHITE_QUEEN], true);
+    ThreatMap_UpdatePieceThreat(BLACK_QUEEN, this->pieces[BLACK_QUEEN], true);
     
     // Generate king threats
-    ThreatMap_UpdatePieceThreat(this->pieces[WHITE_KING], true);
-    ThreatMap_UpdatePieceThreat(this->pieces[BLACK_KING], true);
+    ThreatMap_UpdatePieceThreat(WHITE_PAWN, this->pieces[WHITE_KING], true);
+    ThreatMap_UpdatePieceThreat(BLACK_KING, this->pieces[BLACK_KING], true);
 
 }
 
@@ -190,7 +385,7 @@ void ChessBoard::UpdateThreatMap(moveType_t *moveApplied)
      * we can make, but tbh this is probably good enough for now.
      */
 
-    threatJumpTable[moveApplied->pt](moveApplied->pt, moveApplied->startIdx, this->occupied, false);
+    threatJumpTable[moveApplied->pt % 6](moveApplied->pt, moveApplied->startIdx, this->occupied, false);
 
     /**
      * Check our current index for any present threat. If there is none, then we do
@@ -199,14 +394,13 @@ void ChessBoard::UpdateThreatMap(moveType_t *moveApplied)
     if(IsIndexUnderThreat(currentSearchDepth, moveApplied->startIdx) == true)
     {
         // @todo: still target this for refactor
-        ThreatMap_UpdatePieceThreat(this->pieces[enemyStart + 1], true);
-        ThreatMap_UpdatePieceThreat(this->pieces[enemyStart + 3], true);
-        ThreatMap_UpdatePieceThreat(this->pieces[enemyStart + 4], true);
+        ThreatMap_UpdatePieceThreat(enemyStart + 1, this->pieces[enemyStart + 1], true);
+        ThreatMap_UpdatePieceThreat(enemyStart + 3, this->pieces[enemyStart + 3], true);
+        ThreatMap_UpdatePieceThreat(enemyStart + 4, this->pieces[enemyStart + 4], true);
     }    
 
     // Update the threat map for our given piece that just moved --> Compiler "should" create a jump table for this
-    threatJumpTable[moveApplied->pt](moveApplied->pt, moveApplied->endIdx, this->occupied, true);
-
+    threatJumpTable[moveApplied->pt % 6](moveApplied->pt, moveApplied->endIdx, this->occupied, true);
 }
 
 /**
@@ -271,263 +465,4 @@ void Chessboard::WipeThreatMap(void)
 {
     threatmap.clear(); // this may cause problems, tbd
     currentSearchDepth = 0;
-}
-
-/**
- * Updates the threat map for rooks at our current search depth given that the provided
- * move was applied to the board
- * 
- * @param moveApplied The move that was applied
- */
-void ChessBoard::UpdateRooks(moveType_t *moveApplied)
-{
-    Util_Assert(moveApplied != NULL, "Move applied to UpdateRooks was NULL");
-
-    uint8_t pt;
-    uint64_t rookIdx, shift = 1, rookMask = this->pieces[WHITE_ROOKS] | this->pieces[BLACK_ROOKS];
-    uint64_t lslVal = (8 - (moveApplied->startIdx % 8)) % 8;
-    uint64_t tempIdx;
-    bool foundPiece = false;
-    int  dir = 0;
-
-    // If there actually are no pieces of this piecetype on the board
-    // then just immediately return, no reason to search
-    if(rookMask == 0)
-    {
-        return;
-    }
-
-    // Determine if we have a rook within our line of vision from this end idx from all teams
-    while(rookMask != 0)
-    {
-        // For each of our rooks
-        rookIdx = __builtin_ctz(rookMask);
-        rookMask ^= (shift << rookIdx);
-
-        // Is this rook white or black
-        if((shift << rookIdx) & this->pieces[WHITE_ROOK] > 0)
-        {
-            pt = WHITE_ROOK;
-        }
-        else if((shift << rookIdx) & this->pieces[BLACK_ROOK] > 0)
-        {
-            pt = BLACK_ROOK;
-        }
-        else
-        {
-            Util_Assert(0, "Invalid rook mask calculated");
-        }
-    
-        // Is this rook in our column
-        if( (COLUMN_MASK >> lslVal) & (shift << rookIdx))
-        {
-            (rookIdx > startIdx) ? dir = -8 : dir = 8;
-            tempIdx = moveApplied->startIdx + dir;
-            foundPiece = true;
-        }
-        // Is this rook in our row
-        else if((ROW_MASK << moveApplied->startIdx) & (shift << rookIdx))
-        {
-            (rookIdx > startIdx) ? dir = -1 : dir = 1;
-            tempIdx = moveApplied->startIdx + dir;
-            foundPiece = true;
-        }
-
-        // @todo: this is wrong come back to this
-        while(foundPiece && tempIdx < NUM_BOARD_INDICES)
-        {
-            // Create the entry and add it to the list of threatMapEntrys
-            ThreatMap_AddThreatToMap(pt, rookIdx, tempIdx);
-
-            // We cannot look any further down and therefore should break
-            if((this->occupied & (shift << tempIdx)) != 0)
-            {
-                break;
-            }
-            // Since tempIdx is unsigned 64 bit we will wrap to MAX_INT when we hit the bottom row or go over the number
-            // indices if we hit the top row
-            tempIdx += dir;
-        }
-    }
-}
-
-/**
- * Updates the threat map for bishops at our current search depth given that the provided
- * move was applied to the board
- * 
- * @param moveApplied The move that was applied
- */
-void ChessBoard::UpdateBishops(moveType_t *moveApplied)
-{
-    uint8_t pt;
-    uint64_t bishopIdx, shift = 1, bishopMask = this->pieces[WHITE_BISHOP] | this->pieces[BLACK_BISHOP];
-    uint64_t tempIdx;
-    bool goingLeft = false;
-    int dir = 0;
-
-    // If there actually are no pieces of this piecetype on the board
-    // then just immediately return, no reason to search
-    if(bishopMask == 0)
-    {
-        return;
-    }
-
-    std::list<std::shared_ptr<threatMapEntry_t>> idxList 
-        = std::get<moveApplied->startIdx>(std::get<currentSearchDepth>(threatMap));
-
-    for (std::list<std::shared_ptr<threatMapEntry_t>>::iterator it=idxList.begin(); it != idxList.end(); ++it)
-    {   
-        if(*it->threatPt != WHITE_BISHOP && *it->threatPt != BLACK_BISHOP)
-        {
-            continue;
-        }
-        bishopIdx = *it->threatIdx;
-        pt = *it->threatPt;
-    
-        // So now we have a bishop which is certainly attacking us, and we want to update the 
-        // threatmap past the piece we just moved. So which direction to we go
-        if(bishopIdx > moveApplied->startIdx)
-        {
-            if((bishopIdx % 8) > (moveApplied->startIdx % 8))
-            {
-                dir = -9;
-                goingLeft = true;
-            }
-            else
-            {
-                dir = -7;
-                goingLeft = false;
-            }
-        }
-        else
-        {
-            if((bishopIdx % 8) > (moveApplied->startIdx % 8))
-            {
-                dir = 7;
-                goingLeft = true;
-            }
-            else
-            {
-                dir = 9;
-                goingLeft = false;
-            }
-        }
-        tempIdx = moveApplied->startIdx;
-        // Can we travel in the direction we want to go in
-        while((tempIdx < NUM_BOARD_INDICES)
-            && ((goingLeft && (tempIdx % 8 > 1)) || (!goingLeft && (tempIdx % 8 < 7)) ))
-        {
-            tempIdx += dir;
-        
-            // Create the entry and add it to the list of threatMapEntrys
-            ThreatMap_AddThreatToMap(pt, bishopIdx, tempIdx);
-
-            // We cannot look any further down and therefore should break
-            if((this->occupied & (shift << tempIdx)) != 0)
-            {
-                break;
-            }
-        }
-    }
-}
-
-/**
- * Updates the threat map for queens at our current search depth given that the provided
- * move was applied to the board
- * 
- * @param moveApplied The move that was applied
- */
-void ChessBoard::UpdateQueens(moveType_t *moveApplied)
-{
-    
-    uint8_t pt;
-    uint64_t queenIdx, shift = 1, queenMask = this->pieces[WHITE_QUEEN] | this->pieces[BLACK_QUEEN];
-    uint64_t tempIdx;
-    uint8_t moveState = 0; // 0 == diagonal, 1 == row, 2 == column
-    int dir = 0;
-
-    // If there actually are no pieces of this piecetype on the board
-    // then just immediately return, no reason to search
-    if(queenMask == 0)
-    {
-        return;
-    }
-
-    std::list<threatMapEntry_t> idxList 
-        = std::get<moveApplied->startIdx>(std::get<currentSearchDepth>(threatMap));
-
-    for (std::list<threatMapEntry_t>::iterator it=idxList.begin(); it != idxList.end(); ++it)
-    {   
-        if(*it->threatPt != WHITE_QUEEN && *it->threatPt != BLACK_QUEEN)
-        {
-            continue;
-        }
-        queenIdx = *it->threatIdx;
-        pt = *it->threatPt;
-    
-        // If the queen attacking like a bishop would attack or like a rook
-        if( (COLUMN_MASK >> lslVal) & (shift << queenIdx))
-        {
-            (bishopIdx > startIdx) ? dir = -8 : dir = 8;
-            moveState = 2;
-        }
-        // Is this queen in our row
-        else if((ROW_MASK << moveApplied->startIdx) & (shift << queenIdx))
-        {
-            (queenIdx > startIdx) ? dir = -1 : dir = 1;
-            moveState = 1;
-        }
-        else
-        {
-            // We know that it is a diagonal attack
-            moveState = 0;
-            if(queenIdx > moveApplied->startIdx)
-            {
-                if((queenIdx % 8) > (moveApplied->startIdx % 8))
-                {
-                    dir = -9;
-                    goingLeft = true;
-                }
-                else
-                {
-                    dir = -7;
-                    goingLeft = false;
-                }
-            }
-            else
-            {
-                if((queenIdx % 8) > (moveApplied->startIdx % 8))
-                {
-                    dir = 7;
-                    goingLeft = true;
-                }
-                else
-                {
-                    dir = 9;
-                    goingLeft = false;
-                }
-            }
-        }
-
-        tempIdx = moveApplied->startIdx;
-
-        // Sucks but I am too tired to think of a better way right now @todo: Fix this
-        while((tempIdx < NUM_BOARD_INDICES)
-            && (((goingLeft && (tempIdx % 8 > 1)) || (!goingLeft && (tempIdx % 8 < 7))) // Valid diagonal moves
-            || (moveState == 1 && (tempIdx + dir % 8 != 0)) // Valid row moves
-            || (moveState == 2 && (tempIdx + dir < NUM_BOARD_INDICES)))) // Valid column moves
-        {
-
-            tempIdx += dir;
-
-            // Create the entry and add it to the list of threatMapEntrys
-            ThreatMap_AddThreatToMap(pt, queenIdx, tempIdx);
-
-            // We cannot look any further down and therefore should break
-            if((this->occupied & (shift << tempIdx)) != 0)
-            {
-                break;
-            }
-        }
-    }
 }

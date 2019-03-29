@@ -118,12 +118,6 @@ public:
     void RevertThreatMap();
     bool IsIndexUnderThreat(uint8_t idx);
     bool IsIndexUnderThreat(uint8_t searchDepth, uint8_t idx, bool whiteThreat);
-    void GeneratePawnThreat(uint8_t pt, uint8_t idx);
-    void GenerateRookThreat(uint8_t pt, uint8_t idx);
-    void GenerateKnightThreat(uint8_t pt, uint8_t idx);
-    void GenerateBishopThreat(uint8_t pt, uint8_t idx);
-    void GenerateQueenThreat(uint8_t pt, uint8_t idx);
-    void GenerateKingThreat(uint8_t pt, uint8_t idx);
 
 };
 
