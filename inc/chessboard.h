@@ -26,19 +26,6 @@ typedef struct moveType_s
 
 } moveType_t;
 
-/**
- * The structure for an entry in our threat map. Contains
- * 
- *  1) The piece type initiating the threat
- *  2) The location of the piece threatening the square
- */
-typedef struct threatMapEntry_s
-{
-    uint8_t threatPt;
-    uint8_t threatIdx;
-
-} threatMapEntry_t;
-
 class ChessBoard
 {
 private:
@@ -57,8 +44,6 @@ private:
     //      Negative = black's advantage
     int64_t value;
     int64_t prevValue;
-
-    uint64_t threatMap;
 
     // Set when we have assessed the best response to an input move
     moveType_t *bestMove;
@@ -116,7 +101,7 @@ public:
     void GenerateThreatMap(void);
     void UpdateThreatMap(moveType_t *moveApplied);
     void RevertThreatMap();
-    bool IsIndexUnderThreat(uint8_t idx);
+    bool IsIndexUnderThreat(uint8_t searchDepth, uint8_t idx);
     bool IsIndexUnderThreat(uint8_t searchDepth, uint8_t idx, bool whiteThreat);
 
 };
