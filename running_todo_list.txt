@@ -3,12 +3,8 @@ things to do:
 1) Finalize all valid movement generation
     - Castling
     - Kings
-        - Kings need extra love
-        - Is king in check?
-        - Is the location that the king is moving to safe?
         - Check behavior
 
-2) Update all comments and doxygen/headers/bs
 3) Clean up basic Util_Assert procedure vs error return codes
 4) Unit level testing of move generation for a given piece type
 5) Integration level testing of the board as whole

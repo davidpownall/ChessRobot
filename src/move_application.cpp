@@ -111,12 +111,6 @@ uint64_t ChessBoard::ApplyMoveToBoard(moveType_t *moveToApply)
         this->occupied ^= ((uint64_t) 1 << moveToApply->startIdx);
     }
     
-
-    // Ancillary bitboards also need to be updated
-/*     if(moveToApply->moveVal != MOVE_VALID_UNDO)
-    {   
-        
-    } */
     this->occupied |= ((uint64_t) 1 << moveToApply->endIdx);
     this->empty = ~(this->occupied);
 
@@ -125,12 +119,6 @@ uint64_t ChessBoard::ApplyMoveToBoard(moveType_t *moveToApply)
 
     Util_Assert((this->pieces[friendlyPieces] ^ this->pieces[enemyPieces]) == this->occupied,
         "Incoherence between piece states and state of actual board");
-
-
-    // Move is now applied 
-
-    // @todo: Are we attempting to make a move while our king is in check
-    //    that doesn't remove our king from check after applying the move
 
     return STATUS_SUCCESS;
 

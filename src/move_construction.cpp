@@ -28,8 +28,7 @@ void ChessBoard::BuildMove(uint8_t pt, uint8_t startIdx, uint8_t endIdx,
     (pt >= NUM_PIECE_TYPES/2) ? friendlyPieces = BLACK_PIECES : friendlyPieces = WHITE_PIECES;
     (pt >= NUM_PIECE_TYPES/2) ? enemyPieces = WHITE_PIECES : enemyPieces = BLACK_PIECES;
 
-
-    //Util_Assert(moveVal != MOVE_INVALID, "Tried to build an invalid move");
+    Util_Assert(moveVal != MOVE_INVALID, "Tried to build an invalid move");
     if(moveVal == MOVE_INVALID)
     {
         return;
@@ -56,18 +55,6 @@ void ChessBoard::BuildMove(uint8_t pt, uint8_t startIdx, uint8_t endIdx,
         Util_Assert(((this->pieces[enemyPieces] & mask) == 0),
             "Invalid move: Enemy pieces where we expected empty");
     }
-
-    // Now for an interesting quirk. If we have detected that we can actually directly attack
-    // the king of our enemy, we actually know that the previous move that got us here is
-    // actually illegal under the rules of chess, and MUST be discounted. We can actually
-    // check for this rather simply. They key is that checkmate must be detected from 
-    // our turn, not the response move
-
-    //if((pt < NUM_PIECE_TYPES/2 && (((uint64_t) 1 << endIdx) & this->pieces[BLACK_KING] != 0))
-    //    || (pt >= NUM_PIECE_TYPES/2 && (((uint64_t) 1 << endIdx) & this->pieces[WHITE_KING] != 0)))
-    //{
-    //    legalMove = false;
-    //}
 
     newMove = new moveType_t;
     Util_Assert(newMove != NULL, "Failed to allocate memory for new move!");

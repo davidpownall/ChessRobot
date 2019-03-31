@@ -4,6 +4,7 @@
 #include "util.h"
 #include "chessboard_defs.h"
 #include "chessboard.h"
+#include "threatmap.h"
 
 /**
  * Generates the valid moves for a given chessboard state and color
@@ -606,17 +607,118 @@ void ChessBoard::GenerateKingMoves(uint8_t pt, moveType_t **moveList)
     // While the king has basic movement, it cannot put itself into check,
     // we need an additional guard in place for that. Also castling behavior.
 
-    uint8_t friendlyPieces, enemyPieces;
-    uint64_t king = this->pieces[pt], temp;
-    
+    uint8_t friendlyPieces, enemyPieces, moveVal;
+    uint64_t king = this->pieces[pt], shift = 1;
+    uint64_t kingIdx = __builtin_ctzll(king);
+
     Util_AssignFriendAndFoe(pt, &friendlyPieces, &enemyPieces);
 
-    // This is where we get slightly tricky. The king cannot move into a space under threat
-    // What this implies is that we need to know every single space which is under threat
-    // by the enemy. This includes spaces we can move into freely, as well as captures.
-    // Therefore, we need to generate a list of squares under threat at any time, regardless
-    // of what piece type has done this.    
+    /**
+     * Logic as follows:
+     * 
+     * 1) Can we move in that direction
+     * 2) Are we blocked by a friendly
+     * 3) Would be putting ourselves into check if we did that.
+     *    --> Note that the logic here does not take into account the fact
+     *        that we might be in check when we are making this move. That is 
+     *        handled when actually assessing which moves we want to take
+     */
 
-    // Iterate through coverage list to check if that square is under threat
+    // left
+    if((kingIdx % 8 != 0 )
+        && ((this->pieces[friendlyPieces] & (shift << (kingIdx - 1))) == 0)
+        && (ThreatMap_IsIndexUnderThreat(kingIdx - 1, friendlyPieces == BLACK_PIECES) == false))
+    {
+        moveVal = this->CheckSpaceForMoveOrAttack(kingIdx - 1, friendlyPieces, enemyPieces);
+        if(moveVal != MOVE_INVALID)
+        {
+            this->BuildMove(pt, kingIdx, kingIdx - 1, moveVal, moveList);           
+        }
+    }
+
+    // right
+    if((kingIdx % 8 != 7 )
+        && ((this->pieces[friendlyPieces] & (shift << (kingIdx + 1))) == 0)
+        && (ThreatMap_IsIndexUnderThreat(kingIdx + 1, friendlyPieces == BLACK_PIECES) == false))
+    {
+        moveVal = this->CheckSpaceForMoveOrAttack(kingIdx + 1, friendlyPieces, enemyPieces);
+        if(moveVal != MOVE_INVALID)
+        {
+            this->BuildMove(pt, kingIdx, kingIdx + 1, moveVal, moveList);           
+        }
+    }
+
+    // up
+    if((kingIdx < NUM_BOARD_INDICES - 8 )
+        && ((this->pieces[friendlyPieces] & (shift << (kingIdx + 8))) == 0)
+        && (ThreatMap_IsIndexUnderThreat(kingIdx + 8, friendlyPieces == BLACK_PIECES) == false))
+    {
+        moveVal = this->CheckSpaceForMoveOrAttack(kingIdx + 8, friendlyPieces, enemyPieces);
+        if(moveVal != MOVE_INVALID)
+        {
+            this->BuildMove(pt, kingIdx, kingIdx + 8, moveVal, moveList);           
+        }
+    }
+
+    // down
+    if((kingIdx >= 8 )
+        && ((this->pieces[friendlyPieces] & (shift << (kingIdx - 8))) == 0)
+        && (ThreatMap_IsIndexUnderThreat(kingIdx - 8, friendlyPieces == BLACK_PIECES) == false))
+    {
+        moveVal = this->CheckSpaceForMoveOrAttack(kingIdx - 8, friendlyPieces, enemyPieces);
+        if(moveVal != MOVE_INVALID)
+        {
+            this->BuildMove(pt, kingIdx, kingIdx - 8, moveVal, moveList);           
+        }
+    }
+
+    // down left
+    if((kingIdx % 8 != 0 && kingIdx >= 8 )
+        && ((this->pieces[friendlyPieces] & (shift << (kingIdx - 9))) == 0)
+        && (ThreatMap_IsIndexUnderThreat(kingIdx - 9, friendlyPieces == BLACK_PIECES) == false))
+    {
+        moveVal = this->CheckSpaceForMoveOrAttack(kingIdx - 9, friendlyPieces, enemyPieces);
+        if(moveVal != MOVE_INVALID)
+        {
+            this->BuildMove(pt, kingIdx, kingIdx - 9, moveVal, moveList);           
+        }
+    }
+
+    // down right
+    if((kingIdx % 8 != 7 && kingIdx >= 8 )
+        && ((this->pieces[friendlyPieces] & (shift << (kingIdx - 7))) == 0)
+        && (ThreatMap_IsIndexUnderThreat(kingIdx - 7, friendlyPieces == BLACK_PIECES) == false))
+    {
+        moveVal = this->CheckSpaceForMoveOrAttack(kingIdx - 7, friendlyPieces, enemyPieces);
+        if(moveVal != MOVE_INVALID)
+        {
+            this->BuildMove(pt, kingIdx, kingIdx - 7, moveVal, moveList);           
+        }
+    }
+
+    // up left
+    if((kingIdx % 8 != 0 && kingIdx < NUM_BOARD_INDICES - 8 )
+        && ((this->pieces[friendlyPieces] & (shift << (kingIdx + 7))) == 0)
+        && (ThreatMap_IsIndexUnderThreat(kingIdx + 7, friendlyPieces == BLACK_PIECES) == false))
+    {
+        moveVal = this->CheckSpaceForMoveOrAttack(kingIdx + 7, friendlyPieces, enemyPieces);
+        if(moveVal != MOVE_INVALID)
+        {
+            this->BuildMove(pt, kingIdx, kingIdx + 7, moveVal, moveList);           
+        }
+    }
+
+    // up right
+    if((kingIdx % 8 != 7 && kingIdx < NUM_BOARD_INDICES - 8 )
+        && ((this->pieces[friendlyPieces] & (shift << (kingIdx + 9))) == 0)
+        && (ThreatMap_IsIndexUnderThreat(kingIdx + 9, friendlyPieces == BLACK_PIECES) == false))
+    {
+        moveVal = this->CheckSpaceForMoveOrAttack(kingIdx + 9, friendlyPieces, enemyPieces);
+        if(moveVal != MOVE_INVALID)
+        {
+            this->BuildMove(pt, kingIdx, kingIdx + 9, moveVal, moveList);           
+        }
+    }
+
 
 }

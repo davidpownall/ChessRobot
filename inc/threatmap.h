@@ -1,4 +1,5 @@
 #include <memory>
+#include <list>
 
 /**
  * Enum for opcodes when performing operations on threatmap
@@ -25,18 +26,24 @@ typedef struct threatMapEntry_s
 /**
  * Simple shared_ptr typedef for our threatMap entires
  */
-typedef std::shared_ptr<threatMapEntry_t> threatMapEntryPtr_t;
-typedef std::list<threatMapEntryPtr_t> threatMapIndexList_t;
+//typedef std::shared_ptr<threatMapEntry_t> threatMapEntryPtr_t;
+typedef std::list<threatMapEntry_t*> threatMapIndexList_t;
 
-void ThreatMap_WipeMap(void);
-void ThreatMap_RemoveThreatFromMap(uint8_t pt, uint8_t threatIdx, uint8_t mapIdx);
-void ThreatMap_AddThreatToMap(uint8_t pt,  uint8_t threatIdx, uint8_t mapIdx, threatOpcode_e opCode);
-void ThreatMap_UpdatePawnThreat(uint8_t pt, uint8_t idx, uint64_t occupied, threatOpcode_e opCode);
-void ThreatMap_UpdateRookThreat(uint8_t pt, uint8_t idx, uint64_t occupied, threatOpcode_e opCode);
-void ThreatMap_UpdateKnightThreat(uint8_t pt, uint8_t idx, uint64_t occupied, threatOpcode_e opCode);
-void ThreatMap_UpdateBishopThreat(uint8_t pt, uint8_t idx, uint64_t occupied, threatOpcode_e opCode);
-void ThreatMap_UpdateQueenThreat(uint8_t pt, uint8_t idx, uint64_t occupied, threatOpcode_e opCode);
-void ThreatMap_UpdateKingThreat(uint8_t pt, uint8_t idx, uint64_t occupied, threatOpcode_e opCode);
-void ThreatMap_UpdatePieceThreat(uint8_t pt, uint64_t pieces, uint64_t occupied, threatOpcode_e opCode);
-
-/* @todo: Convert remaining threatmap functions over */
+void        ThreatMap_RevertState(void);
+void        ThreatMap_WipeMap(void);
+void        ThreatMap_Generate(uint64_t *pieces, uint64_t occupied);
+void        ThreatMap_Update(moveType_t *moveApplied, uint64_t *pieces, uint64_t occupied, bool realMove);
+void        ThreatMap_RemoveThreatFromMap(uint8_t pt, uint8_t threatIdx, uint8_t mapIdx);
+void        ThreatMap_AddThreatToMap(uint8_t pt,  uint8_t threatIdx, uint8_t mapIdx, threatOpcode_e opCode);
+void        ThreatMap_UpdatePawnThreat(uint8_t pt, uint8_t idx, uint64_t occupied, threatOpcode_e opCode);
+void        ThreatMap_UpdateRookThreat(uint8_t pt, uint8_t idx, uint64_t occupied, threatOpcode_e opCode);
+void        ThreatMap_UpdateKnightThreat(uint8_t pt, uint8_t idx, uint64_t occupied, threatOpcode_e opCode);
+void        ThreatMap_UpdateBishopThreat(uint8_t pt, uint8_t idx, uint64_t occupied, threatOpcode_e opCode);
+void        ThreatMap_UpdateQueenThreat(uint8_t pt, uint8_t idx, uint64_t occupied, threatOpcode_e opCode);
+void        ThreatMap_UpdateKingThreat(uint8_t pt, uint8_t idx, uint64_t occupied, threatOpcode_e opCode);
+void        ThreatMap_UpdatePieceTypeThreat(uint8_t pt, uint64_t pieces, uint64_t occupied, threatOpcode_e opCode);
+bool        ThreatMap_IsIndexUnderThreat(uint8_t currentSearchDepth, uint8_t idx);
+bool        ThreatMap_IsIndexUnderThreat(uint8_t idx, bool whiteThreat);
+bool        ThreatMap_IsKingInCheckAtIndex(uint8_t kingIdx, uint8_t threatColor);
+bool        ThreatMap_IsKingInCheckMateAtIndex(uint8_t kingIdx, uint8_t threatColor, uint64_t *pieces);
+uint64_t    ThreatMap_AttackThroughPiecesTargetingIndex(uint8_t currentSearchDepth, uint8_t idx);

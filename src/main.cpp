@@ -2,6 +2,7 @@
 #include "util.h"
 #include "chessboard.h"
 #include "chessboard_test.h"
+#include "threatmap.h"
 
 void PlayGame(void);
 
@@ -64,6 +65,8 @@ void PlayGame(void)
         return;
     }
 
+    ThreatMap_Generate(cb->GetPieces(), cb->GetOccupied());
+
     // Main loop of the chess game, we are playing as black
     while(true)
     {
@@ -77,6 +80,7 @@ void PlayGame(void)
         Util_Assert(tempMove != NULL, "Received bad move!");
 
         cb->ApplyMoveToBoard(tempMove);
+        ThreatMap_Update(tempMove, cb->GetPieces(), cb->GetOccupied(), true);
         ourMoves = cb->GenerateMoves(BLACK_PIECES);
 
         // State 2
@@ -89,6 +93,7 @@ void PlayGame(void)
 
         // Actually apply our chosen move to the board
         cb->ApplyMoveToBoard(&selectedMove);
+        ThreatMap_Update(&selectedMove, cb->GetPieces(), cb->GetOccupied(), true);
 
         // Cleanup
         while(ourMoves != NULL && ourMoves->legalMove)

@@ -119,11 +119,6 @@ int64_t ChessBoard::EvaluateCurrentBoardValue(ChessBoard *cb)
 
     for(idx = 0; idx < NUM_PIECE_TYPES; ++idx)
     {
-        // @todo: deal with lategame kings
-        if((uint8_t) idx == WHITE_KING || (uint8_t) idx == BLACK_KING)
-        {
-            continue;
-        }
 
         // Essentially our piece value table must be mirrored for black, so we handle
         // that here
@@ -150,7 +145,7 @@ int64_t ChessBoard::EvaluateCurrentBoardValue(ChessBoard *cb)
 moveType_t *ConvertStringToMove(ChessBoard* cb, std::string str)
 {
     moveType_t *move;
-    uint64_t idxToFind, mask, count;
+    uint64_t idxToFind, mask, count, shift = 1;
     
     Util_Assert(cb != NULL, "Was passed a bad chessboard");
     Util_Assert(!str.empty(), "Was passed empty string");
@@ -180,6 +175,8 @@ moveType_t *ConvertStringToMove(ChessBoard* cb, std::string str)
         }
         else
         {
+            Util_Assert(((shift << move->endIdx) & cb->GetBlackPieces()) == 0, "ABS");
+
             move->moveVal = MOVE_VALID;
 
             // Pawn has to move forward, therefore find current index

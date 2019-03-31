@@ -31,7 +31,6 @@ class ChessBoard
 private:
     /* 12 unique bitboard representations required + two general */
     uint64_t pieces[NUM_PIECE_TYPES + 2];
-    uint64_t prevPieces[NUM_PIECE_TYPES + 2];
 
     /* Union of all bitboards */
     uint64_t occupied;
@@ -53,7 +52,9 @@ public:
     ChessBoard(void);
     ChessBoard(uint64_t *pieces, uint64_t occupied, uint64_t searchDepth, moveType_t *lastMove);
 
+    uint64_t *GetPieces() const { return (uint64_t *) pieces; };
     uint64_t GetPiece(uint8_t pt) const { return pieces[pt]; };
+    uint64_t GetOccupied() const { return occupied; };
     uint64_t GetWhitePieces() const { return pieces[WHITE_PIECES]; };
     uint64_t GetBlackPieces() const { return pieces[BLACK_PIECES]; };
 
@@ -96,13 +97,6 @@ public:
     void GenerateKnightMoves(uint8_t pt, moveType_t **moveList);
     void GenerateQueenMoves(uint8_t pt, moveType_t **moveList);
     void GenerateKingMoves(uint8_t pt, moveType_t **moveList);
-
-    // @todo: Perhaps split these all off into their own class
-    void GenerateThreatMap(void);
-    void UpdateThreatMap(moveType_t *moveApplied);
-    void RevertThreatMap();
-    bool IsIndexUnderThreat(uint8_t searchDepth, uint8_t idx);
-    bool IsIndexUnderThreat(uint8_t searchDepth, uint8_t idx, bool whiteThreat);
 
 };
 
